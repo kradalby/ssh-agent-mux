@@ -17,8 +17,14 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
+pub mod socket_manager;
+pub mod watcher;
+
+use socket_manager::SocketManager;
+
 type KnownPubKeysMap = HashMap<PubKeyData, PathBuf>;
 type KnownPubKeys = Arc<Mutex<KnownPubKeysMap>>;
+type SharedSocketManager = Arc<Mutex<SocketManager>>;
 
 /// Only the `request_identities`, `sign`, and `extension` commands are implemented. For
 /// `extension`, only the `session-bind@openssh.com` and `query` extensions are supported.
@@ -60,7 +66,11 @@ impl Session for MuxAgent {
             })?)),
             "session-bind@openssh.com" => {
                 let mut session_bind_suceeded = false;
-                for sock_path in &self.socket_paths {
+                let socket_paths = {
+                    let manager = self.socket_manager.lock().await;
+                    manager.get_ordered_sockets()
+                };
+                for sock_path in &socket_paths {
                     // Try extension on upstream agents; discard any upstream failures from agents
                     // that don't support the extension (but the default is Failure if there are no
                     // successful upstream responses)
@@ -96,7 +106,7 @@ impl Session for MuxAgent {
 
 #[derive(Clone)]
 pub struct MuxAgent {
-    socket_paths: Vec<PathBuf>,
+    socket_manager: SharedSocketManager,
     known_keys: KnownPubKeys,
 }
 
@@ -123,6 +133,23 @@ impl MuxAgent {
         );
         log::debug!("Upstream agent sockets: {:?}", &socket_paths);
 
+        let socket_manager = Arc::new(Mutex::new(SocketManager::new(socket_paths)));
+        Self::run_with_manager(listen_sock, socket_manager).await
+    }
+
+    /// Run a MuxAgent with a shared SocketManager, listening for SSH agent protocol requests
+    /// This variant allows external control of the socket list via the shared manager
+    pub async fn run_with_manager(
+        listen_sock: impl AsRef<Path>,
+        socket_manager: SharedSocketManager,
+    ) -> Result<(), AgentError> {
+        let listen_sock = listen_sock.as_ref();
+
+        log::info!(
+            "Starting agent with shared socket manager; listening on <{}>",
+            listen_sock.display()
+        );
+
         let listen_sock = match SelfDeletingUnixListener::bind(listen_sock) {
             Ok(s) => s,
             err => {
@@ -133,11 +160,25 @@ impl MuxAgent {
                 err?
             }
         };
+
         let this = Self {
-            socket_paths,
+            socket_manager,
             known_keys: Default::default(),
         };
         agent::listen(listen_sock, this).await
+    }
+
+    /// Create a new MuxAgent with a shared SocketManager (for use with watcher)
+    pub fn new_with_manager(socket_manager: SharedSocketManager) -> Self {
+        Self {
+            socket_manager,
+            known_keys: Default::default(),
+        }
+    }
+
+    /// Get a clone of the shared socket manager
+    pub fn socket_manager(&self) -> SharedSocketManager {
+        self.socket_manager.clone()
     }
 
     fn connect_upstream_agent(
@@ -188,7 +229,14 @@ impl MuxAgent {
         known_keys.clear();
 
         log::debug!("Refreshing identities");
-        for sock_path in &self.socket_paths {
+
+        // Get current ordered socket list from manager
+        let socket_paths = {
+            let manager = self.socket_manager.lock().await;
+            manager.get_ordered_sockets()
+        };
+
+        for sock_path in &socket_paths {
             let mut client = match self.connect_upstream_agent(sock_path) {
                 Ok(c) => c,
                 Err(_) => {

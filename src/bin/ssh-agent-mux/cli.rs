@@ -55,6 +55,11 @@ pub struct Config {
     #[arg()]
     pub agent_sock_paths: Vec<PathBuf>,
 
+    /// Watch /tmp for SSH forwarded agents
+    #[default(false)]
+    #[arg(long)]
+    pub watch_for_ssh_forward: bool,
+
     // Following are part of command line args, but
     // not in configuration file
     /// Config file path (not an arg; copied from struct Args)
