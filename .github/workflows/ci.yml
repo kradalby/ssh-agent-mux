@@ -4,9 +4,9 @@ on:
   pull_request:
   push:
     branches:
-    - main
+      - main
   schedule:
-  - cron: '00 01 * * *'
+    - cron: "00 01 * * *"
 
 # The section is needed to drop write-all permissions that are granted on
 # `schedule` event. By specifying any permission explicitly all others are set
@@ -29,109 +29,80 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: test
-    env:
-      # For some builds, we use cross to test on 32-bit and big-endian
-      # systems.
-      CARGO: cargo
-      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
-      # Note that we only use cross on Linux, so setting a target on a
-      # different OS will just use normal cargo.
-      TARGET_FLAGS: ""
-      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
-      TARGET_DIR: ./target
-      # Bump this as appropriate. We pin to a version to make sure CI
-      # continues to work as cross releases in the past have broken things
-      # in subtle ways.
-      CROSS_VERSION: v0.2.5
-      # Emit backtraces on panics.
-      RUST_BACKTRACE: 1
-    runs-on: ${{ matrix.os }}
+  nix-build:
+    name: Nix Build & Test
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - build: pinned
-          os: ubuntu-latest
-          rust: 1.81.0
-        - build: stable
-          os: ubuntu-latest
-          rust: stable
-        - build: beta
-          os: ubuntu-latest
-          rust: beta
-        - build: nightly
-          os: ubuntu-latest
-          rust: nightly
-        # Disable qemu targets until resolving qemu-run binary
-        # access to ssh-agent and ssh-add
-        # - build: stable-musl
-        #   os: ubuntu-latest
-        #   rust: stable
-        #   target: x86_64-unknown-linux-musl
-        # - build: stable-x86
-        #   os: ubuntu-latest
-        #   rust: stable
-        #   target: i686-unknown-linux-gnu
-        # - build: stable-aarch64
-        #   os: ubuntu-latest
-        #   rust: stable
-        #   target: aarch64-unknown-linux-gnu
-        - build: macos
-          os: macos-latest
-          rust: nightly
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install packages (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        ci/ubuntu-install-packages
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v28
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
+      - name: Restore and cache Nix store
+        uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
 
-    - name: Use Cross
-      if: matrix.os == 'ubuntu-latest' && matrix.target != ''
-      run: |
-        # In the past, new releases of 'cross' have broken CI. So for now, we
-        # pin it. We also use their pre-compiled binary releases because cross
-        # has over 100 dependencies and takes a bit to compile.
-        dir="$RUNNER_TEMP/cross-download"
-        mkdir "$dir"
-        echo "$dir" >> $GITHUB_PATH
-        cd "$dir"
-        curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
-        tar xf cross-x86_64-unknown-linux-musl.tar.gz
-        echo "CARGO=cross" >> $GITHUB_ENV
-        echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-        echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+      - name: Build package
+        run: nix build -L
 
-    - name: Show command used for Cargo
-      run: |
-        echo "cargo command is: ${{ env.CARGO }}"
-        echo "target flag is: ${{ env.TARGET_FLAGS }}"
-        echo "target dir is: ${{ env.TARGET_DIR }}"
+      - name: Run tests
+        run: nix develop -c cargo nextest run
 
-    - name: Build debug target
-      run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+      - name: Run clippy
+        run: nix develop -c cargo clippy --all-targets --all-features -- -D warnings
 
-    - name: Run tests
-      run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
+      - name: Check flake
+        run: nix flake check
 
-  rustfmt:
+  nix-modules:
+    name: Validate Nix Modules
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        components: rustfmt
-    - name: Check formatting
-      run: cargo fmt --all --check
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v28
+
+      - name: Restore and cache Nix store
+        uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+
+      - name: Validate Home Manager module
+        run: |
+          nix eval .#homeManagerModules.default --apply 'builtins.isFunction'
+
+      - name: Validate Darwin module
+        run: |
+          nix eval .#darwinModules.default --apply 'builtins.isFunction'
+
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v28
+
+      - name: Restore and cache Nix store
+        uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+
+      - name: Check Nix formatting
+        run: nix fmt -- --check .
+
+      - name: Check Rust formatting
+        run: nix develop -c cargo fmt --all --check
