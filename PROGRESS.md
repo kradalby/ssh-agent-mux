@@ -315,13 +315,17 @@ All CI checks can be run locally:
 - 📋 TODO: Memory leak testing under load</parameter>
 - 📋 TODO: Memory leak testing
 
-#### 5.10 Documentation 📋 TODO
-- [ ] Update README.md with `--watch-for-ssh-forward` option
-- [ ] Add examples of SSH forwarding use cases
-- [ ] Document performance characteristics
-- [ ] Update nix module documentation (darwin.md and home-manager.md)
-- [ ] Add manual testing guide for SSH forwarding detection</parameter>
-- [ ] Update nix module documentation
+#### 5.10 Documentation ✅ Complete
+- ✅ Updated README.md with `--watch-for-ssh-forward` option
+- ✅ Added examples of SSH forwarding use cases
+- ✅ Documented key priority (forwarded agents first, then configured)
+- ✅ Nix module documentation already includes watchForSSHForward option
+- ✅ Created comprehensive TESTING.md with manual testing guide
+  - Step-by-step procedures for testing SSH forwarding detection
+  - Performance testing guidance (CPU, memory, event speed)
+  - Real-world SSH forwarding scenarios
+  - Debugging tips and troubleshooting
+  - CI/CD testing notes
 
 ### Files Created/Modified
 **New Files:**
@@ -408,7 +412,7 @@ nix develop -c cargo audit
 ### Remaining (1/6 phases)
 - 📋 Phase 6: Dependency Updates (1 week)
 
-### Total Progress: 85% Complete (Core functionality complete, integration tests need refinement, docs pending)</parameter>
+### Total Progress: 90% Complete (Core functionality complete, documentation complete, integration tests need async refinement)</parameter>
 
 ### Files Created/Modified
 **New Files:**
@@ -439,12 +443,12 @@ nix develop -c cargo audit
    - Validate on both macOS and Linux
    - Consider adding a simple end-to-end smoke test script
 
-2. **Complete Phase 5 Documentation**
-   - Update README.md with `--watch-for-ssh-forward` option
-   - Add examples and use cases
-   - Document performance characteristics
-   - Update nix module documentation (add watchForSSHForward option docs)
-   - Add manual testing guide
+2. **Phase 5 Documentation** ✅ Complete
+   - ✅ Updated README.md with `--watch-for-ssh-forward` option
+   - ✅ Added examples and use cases
+   - ✅ Documented key priority
+   - ✅ Nix module documentation already included watchForSSHForward
+   - ✅ Created comprehensive TESTING.md manual testing guide
 
 3. **Test Complete Implementation**
    - Test darwin module in real nix-darwin system
@@ -469,11 +473,10 @@ nix develop -c cargo audit
 - **Phase 5:** 
   - Core implementation: ✅ COMPLETE (1 week)
   - Unit testing: ✅ COMPLETE
-  - Integration testing: 🔄 IN PROGRESS (needs async timing fix, 2-3 days)
-  - Documentation: 📋 TODO (3-5 days estimated)
+  - Integration testing: 🔄 IN PROGRESS (needs async timing fix, 1-2 days)
+  - Documentation: ✅ COMPLETE (3 days)
 - **Phase 6:** 1 week (straightforward updates)
-- **Total Remaining:** 1-2 weeks</parameter>
-- **Total Remaining:** 2-3 weeks
+- **Total Remaining:** 1-1.5 weeks
 
 ### Notes
 
@@ -489,4 +492,4 @@ nix develop -c cargo audit
 ---
 
 **Last Updated:** 2025-01-16
-**Progress:** 4/6 phases complete, 1/6 in progress (85% - core functionality complete, integration tests need async timing fix)</parameter>
+**Progress:** 4/6 phases complete, 1/6 in progress (90% - core complete, docs complete, integration tests need async timing fix)</parameter>
