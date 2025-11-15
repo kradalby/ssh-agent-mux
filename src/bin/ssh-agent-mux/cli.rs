@@ -57,7 +57,7 @@ pub struct Config {
 
     /// Watch /tmp for SSH forwarded agents
     #[default(false)]
-    #[arg(long)]
+    #[arg(long, action = clap::ArgAction::SetTrue)]
     pub watch_for_ssh_forward: bool,
 
     // Following are part of command line args, but
