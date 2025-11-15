@@ -156,9 +156,4 @@ in {
       Configure agentSockets or enable watchForSSHForward.
     '';
   };
-
-  meta = {
-    maintainers = [];
-    doc = ./home-manager.md;
-  };
 }
