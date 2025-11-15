@@ -127,8 +127,9 @@ launchctl list | grep ssh-agent-mux
 
 **View logs:**
 ```bash
-tail -f ~/Library/Logs/ssh-agent-mux.log
-tail -f ~/Library/Logs/ssh-agent-mux.error.log
+# Launchd uses default log paths based on the service label
+tail -f ~/Library/Logs/org.nixos.ssh-agent-mux.stdout.log
+tail -f ~/Library/Logs/org.nixos.ssh-agent-mux.stderr.log
 ```
 
 **Manually stop the service:**

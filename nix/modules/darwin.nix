@@ -120,9 +120,9 @@ in {
         # Background process type
         ProcessType = "Background";
 
-        # Logging (relative paths are resolved relative to user's home by launchd)
-        StandardOutPath = "Library/Logs/ssh-agent-mux.log";
-        StandardErrorPath = "Library/Logs/ssh-agent-mux.error.log";
+        # Logging: Uses launchd defaults
+        # - ~/Library/Logs/org.nixos.ssh-agent-mux.stdout.log
+        # - ~/Library/Logs/org.nixos.ssh-agent-mux.stderr.log
 
         # Environment
         EnvironmentVariables = {
