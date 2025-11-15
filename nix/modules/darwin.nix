@@ -151,9 +151,4 @@ in {
       Configure agentSockets or enable watchForSSHForward.
     '';
   };
-
-  meta = {
-    maintainers = [];
-    doc = ./darwin.md;
-  };
 }
