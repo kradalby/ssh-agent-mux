@@ -106,6 +106,33 @@ Controls the verbosity of `ssh-agent-mux`'s output. Valid values are: `error`, `
 
 *Default*: `warn`
 
+#### `watch_for_ssh_forward` *[Boolean](https://toml.io/en/v1.0.0#boolean)*
+
+Enable automatic detection of SSH forwarded agents. When enabled, `ssh-agent-mux` watches `/tmp` for SSH agent sockets that are forwarded via `ssh -A`. Detected forwarded agents are automatically added and their keys are offered with higher priority than configured agents.
+
+This is useful when SSH-ing into a remote machine and then SSH-ing from that machine to other systems - the forwarded agent will be automatically detected and used.
+
+*Default*: `false`
+
+**Example with SSH forwarding detection enabled:**
+
+```toml
+# Static agents (e.g., local 1Password, Secretive)
+agent_sock_paths = [
+	"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock",
+	"~/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh",
+]
+
+# Enable SSH forwarding detection
+watch_for_ssh_forward = true
+```
+
+**Key Priority:**
+1. Forwarded agents (newest first) - automatically detected when `watch_for_ssh_forward = true`
+2. Configured agents (in order) - from `agent_sock_paths`
+
+This means when you SSH into a machine with `ssh -A`, the forwarded agent's keys will be tried first, falling back to local agents if authentication fails.
+
 ## Related projects
 
 * [`ssh-manager`](https://github.com/omegion/ssh-manager): key manager for 1Password, Bitwarden, and AWS S3
