@@ -147,9 +147,7 @@ in {
         ReadWritePaths = [socketDir];
       };
 
-      Install = {
-        WantedBy = ["default.target"];
-      };
+      wantedBy = ["default.target"];
     };
 
     environment.sessionVariables.SSH_AUTH_SOCK = cfg.socketPath;
