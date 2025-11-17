@@ -23,6 +23,9 @@
         ssh-agent-mux = self.packages.${final.system}.ssh-agent-mux;
       };
 
+      # NixOS module for systemd user service
+      nixosModules.default = import ./nix/modules/nixos.nix;
+
       # Darwin module for macOS (nix-darwin)
       darwinModules.default = import ./nix/modules/darwin.nix;
 
