@@ -1,5 +1,5 @@
 use notify::{Event, EventKind, RecursiveMode};
-use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, NoCache};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -41,7 +41,7 @@ pub fn is_ssh_forwarded_agent(path: &Path) -> bool {
 /// Returns a receiver channel that will receive WatchEvent messages
 pub async fn watch_tmp_directory(
     tx: mpsc::UnboundedSender<WatchEvent>,
-) -> Result<Debouncer<notify::RecommendedWatcher, FileIdMap>, notify::Error> {
+) -> Result<Debouncer<notify::RecommendedWatcher, NoCache>, notify::Error> {
     let tmp_path = Path::new("/tmp");
 
     log::info!("Starting file watcher on /tmp for SSH forwarded agents");
