@@ -127,13 +127,12 @@ in {
     environment.systemPackages = [cfg.package];
 
     systemd.user.services.ssh-agent-mux = {
-      Unit = {
-        Description = "SSH Agent Multiplexer";
-        Documentation = "https://github.com/overhacked/ssh-agent-mux";
-        After = ["default.target"];
-      };
+      description = "SSH Agent Multiplexer";
+      documentation = ["https://github.com/overhacked/ssh-agent-mux"];
+      after = ["default.target"];
+      wantedBy = ["default.target"];
 
-      Service = {
+      serviceConfig = {
         Type = "simple";
         ExecStart = startScript;
         Restart = "on-failure";
@@ -146,8 +145,6 @@ in {
         ProtectHome = "read-only";
         ReadWritePaths = [socketDir];
       };
-
-      wantedBy = ["default.target"];
     };
 
     environment.sessionVariables.SSH_AUTH_SOCK = cfg.socketPath;
