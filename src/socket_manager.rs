@@ -19,10 +19,12 @@ struct WatchedSocket {
 impl SocketManager {
     /// Create a new SocketManager with configured sockets
     pub fn new(configured_sockets: Vec<PathBuf>) -> Self {
-        Self {
+        let manager = Self {
             configured_sockets,
             watched_sockets: HashMap::new(),
-        }
+        };
+        manager.log_state("Initialized socket manager");
+        manager
     }
 
     /// Get ordered list of sockets: watched (newest first) + configured
@@ -48,11 +50,16 @@ impl SocketManager {
         }
 
         log::info!("Adding watched socket: {}", path.display());
+        let log_path = path.clone();
         let socket = WatchedSocket {
             path: path.clone(),
             created_at: SystemTime::now(),
         };
         self.watched_sockets.insert(path, socket);
+        self.log_state(format!(
+            "Active sockets after adding forwarded agent {}",
+            log_path.display()
+        ));
         true
     }
 
@@ -60,6 +67,10 @@ impl SocketManager {
     pub fn remove_watched(&mut self, path: &PathBuf) -> bool {
         if let Some(_) = self.watched_sockets.remove(path) {
             log::info!("Removed watched socket: {}", path.display());
+            self.log_state(format!(
+                "Active sockets after removing forwarded agent {}",
+                path.display()
+            ));
             true
         } else {
             log::debug!("Socket not found in watched list: {}", path.display());
@@ -104,6 +115,37 @@ impl SocketManager {
     /// Update the configured sockets list
     pub fn update_configured(&mut self, configured_sockets: Vec<PathBuf>) {
         self.configured_sockets = configured_sockets;
+        self.log_state("Active sockets after configuration update");
+    }
+
+    /// Log the current socket ordering to aid debugging
+    pub fn log_state(&self, context: impl AsRef<str>) {
+        let context = context.as_ref();
+        let ordered = self.get_ordered_sockets();
+        if ordered.is_empty() {
+            log::info!(
+                "{}: no active agent sockets (watched: {}, configured: {})",
+                context,
+                self.watched_count(),
+                self.configured_count()
+            );
+            return;
+        }
+
+        let ordered_paths = ordered
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        log::info!(
+            "{}: {} active agent sockets (watched: {}, configured: {}); order: [{}]",
+            context,
+            ordered.len(),
+            self.watched_count(),
+            self.configured_count(),
+            ordered_paths
+        );
     }
 }
 
