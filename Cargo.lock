@@ -1611,7 +1611,7 @@ dependencies = [
 
 [[package]]
 name = "ssh-agent-mux"
-version = "0.1.6"
+version = "0.0.0-git"
 dependencies = [
  "clap-serde-derive",
  "color-eyre",

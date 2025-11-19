@@ -9,6 +9,9 @@ mod cli;
 mod logging;
 mod service;
 
+const BUILD_VERSION: &str = env!("SSH_AGENT_MUX_BUILD_VERSION");
+const GIT_DESCRIBE: &str = env!("SSH_AGENT_MUX_GIT_DESCRIBE");
+
 #[cfg(debug_assertions)]
 fn install_eyre_hook() -> EyreResult<()> {
     color_eyre::config::HookBuilder::default()
@@ -34,6 +37,11 @@ async fn main() -> EyreResult<()> {
 
     // LoggerHandle must be held until program termination so file logging takes place
     let _logger = logging::setup_logger(config.log_level.into(), config.log_file.as_deref())?;
+    log::info!(
+        "Starting ssh-agent-mux version {}; commit {}",
+        BUILD_VERSION,
+        GIT_DESCRIBE
+    );
 
     if config.service.any() {
         return service::handle_service_command(&config);
