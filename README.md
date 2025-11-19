@@ -108,7 +108,7 @@ Controls the verbosity of `ssh-agent-mux`'s output. Valid values are: `error`, `
 
 #### `watch_for_ssh_forward` *[Boolean](https://toml.io/en/v1.0.0#boolean)*
 
-Enable automatic detection of SSH forwarded agents. When enabled, `ssh-agent-mux` watches `/tmp` for SSH agent sockets that are forwarded via `ssh -A`. Detected forwarded agents are automatically added and their keys are offered with higher priority than configured agents.
+Enable automatic detection of SSH forwarded agents. When enabled, `ssh-agent-mux` watches `/tmp` for SSH agent sockets that are forwarded via `ssh -A`. It recognizes both traditional OpenSSH sockets (`/tmp/ssh-*/agent.*`) and systemd/gnome-keyring style sockets (`/tmp/auth-agent*/listener.sock`). Detected forwarded agents are automatically added and their keys are offered with higher priority than configured agents.
 
 This is useful when SSH-ing into a remote machine and then SSH-ing from that machine to other systems - the forwarded agent will be automatically detected and used.
 

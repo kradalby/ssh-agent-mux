@@ -1,7 +1,6 @@
 use std::{
     ffi::OsString,
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -23,7 +22,8 @@ fn create_forwarded_agent_structure(
 ) -> io::Result<PathBuf> {
     // Create ssh-XXXXXX directory (SSH uses random suffix with exactly 6 chars)
     // Pattern must match /tmp/ssh-* where * is typically 6 random chars
-    let ssh_dir = base_dir.join(format!("ssh-{:06x}{}",
+    let ssh_dir = base_dir.join(format!(
+        "ssh-{:06x}{}",
         (std::process::id() as u32).wrapping_add(suffix.len() as u32) % 0xFFFFFF,
         suffix.chars().take(2).collect::<String>()
     ));
@@ -47,10 +47,7 @@ fn create_forwarded_agent_structure(
 #[cfg(unix)]
 fn smoke_test_watcher_enabled() -> TestResult {
     // Just verify the agent starts with watch enabled and doesn't crash
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(500));
 
@@ -73,10 +70,7 @@ fn detect_forwarded_socket_added() -> TestResult {
     let tmp_dir = PathBuf::from("/tmp");
 
     // Start mux with watch enabled but no configured sockets
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     // Give the watcher time to start
     thread::sleep(Duration::from_millis(500));
@@ -110,7 +104,9 @@ fn detect_forwarded_socket_added() -> TestResult {
         "Should detect forwarded agent's keys"
     );
     assert!(
-        keys_after.iter().any(|k| k.contains("integration-test-ed25519")),
+        keys_after
+            .iter()
+            .any(|k| k.contains("integration-test-ed25519")),
         "Should have the ED25519 key from forwarded agent"
     );
 
@@ -135,10 +131,7 @@ fn detect_forwarded_socket_removed() -> TestResult {
     let ssh_dir = forwarded_path.parent().unwrap().to_path_buf();
 
     // Start mux - should detect existing forwarded socket during initial scan
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     // Give watcher time to scan existing sockets
     thread::sleep(Duration::from_millis(800));
@@ -187,10 +180,7 @@ fn forwarded_socket_priority() -> TestResult {
         configured_agent.sock_path.display()
     );
 
-    let mux = SshAgentInstance::new_mux(
-        &config,
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux(&config, [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(500));
 
@@ -246,10 +236,7 @@ fn forwarded_socket_priority() -> TestResult {
 fn multiple_forwarded_sockets_ordering() -> TestResult {
     let tmp_dir = PathBuf::from("/tmp");
 
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(500));
 
@@ -316,10 +303,7 @@ fn cleanup_invalid_forwarded_sockets() -> TestResult {
     // Create forwarded socket structure
     let forwarded_path = create_forwarded_agent_structure(&tmp_dir, &forwarded_agent, "-cleanup")?;
 
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(800));
 
@@ -369,10 +353,7 @@ fn watcher_preserves_configured_sockets() -> TestResult {
         configured.sock_path.display()
     );
 
-    let mux = SshAgentInstance::new_mux(
-        &config,
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux(&config, [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(500));
 
@@ -407,7 +388,9 @@ fn watcher_preserves_configured_sockets() -> TestResult {
         "Should still have configured socket"
     );
     assert!(
-        final_keys.iter().any(|k| k.contains("integration-test-rsa")),
+        final_keys
+            .iter()
+            .any(|k| k.contains("integration-test-rsa")),
         "Configured socket should remain through forwarding changes"
     );
 
@@ -459,10 +442,7 @@ fn no_detection_without_watch_flag() -> TestResult {
 fn debouncing_rapid_events() -> TestResult {
     let tmp_dir = PathBuf::from("/tmp");
 
-    let mux = SshAgentInstance::new_mux(
-        "",
-        [OsString::from("--watch-for-ssh-forward")],
-    )?;
+    let mux = SshAgentInstance::new_mux("", [OsString::from("--watch-for-ssh-forward")])?;
 
     thread::sleep(Duration::from_millis(500));
 
@@ -470,7 +450,8 @@ fn debouncing_rapid_events() -> TestResult {
     for i in 0..3 {
         let agent = SshAgentInstance::new_openssh()?;
         agent.add(keys::TEST_KEY_ED25519)?;
-        let socket = create_forwarded_agent_structure(&tmp_dir, &agent, &format!("-debounce{}", i))?;
+        let socket =
+            create_forwarded_agent_structure(&tmp_dir, &agent, &format!("-debounce{}", i))?;
         thread::sleep(Duration::from_millis(100));
         let _ = fs::remove_file(&socket);
         if let Some(parent) = socket.parent() {
