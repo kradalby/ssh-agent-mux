@@ -136,7 +136,7 @@ in {
     # Create launchd user agent
     launchd.user.agents.ssh-agent-mux = {
       serviceConfig = {
-        ProgramArguments = [builtins.toString startScript];
+        ProgramArguments = [(builtins.toString startScript)];
 
         # Run at load and keep alive
         RunAtLoad = true;
