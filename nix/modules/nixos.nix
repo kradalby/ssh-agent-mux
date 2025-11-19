@@ -21,25 +21,24 @@ with lib; let
     then "$HOME" + (removePrefix "~" path)
     else path;
 
-  # Quote arguments for shell usage, allowing $HOME to expand when needed
-  shellArg = path:
-    if hasPrefix "~/" path
-    then "\"$HOME${removePrefix "~" path}\""
-    else escapeShellArg path;
-
   startScript = pkgs.writeShellScript "ssh-agent-mux-start" ''
     set -euo pipefail
 
+    listen_path=${toShellPath cfg.listenPath}
+    listen_dir=$(dirname "$listen_path")
+    mkdir -p "$listen_dir"
+    rm -f "$listen_path"
+
     args=(
-      --listen ${shellArg cfg.listenPath}
-      --log-level ${escapeShellArg cfg.logLevel}
+      --listen "$listen_path"
+      --log-level ${cfg.logLevel}
     )
 
     ${optionalString cfg.watchForSSHForward "args+=(--watch-for-ssh-forward)"}
 
     ${
       concatMapStrings
-      (socket: "args+=(${shellArg socket})\n")
+      (socket: ''args+=("${toShellPath socket}")\n'')
       cfg.agentSockets
     }
 
@@ -145,6 +144,8 @@ in {
         ProtectHome = "read-only";
         ReadWritePaths = [socketDir];
       };
+
+      restartTriggers = [cfg.package startScript];
     };
 
     environment.sessionVariables.SSH_AUTH_SOCK = cfg.socketPath;
