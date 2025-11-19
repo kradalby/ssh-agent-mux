@@ -4,10 +4,22 @@
   config,
   lib,
   pkgs,
+  sshAgentMuxPackage ? null,
   ...
 }:
 with lib; let
   cfg = config.services.ssh-agent-mux;
+  defaultPackage =
+    if sshAgentMuxPackage != null then sshAgentMuxPackage
+    else if pkgs ? ssh-agent-mux then pkgs.ssh-agent-mux
+    else
+      throw ''
+        ssh-agent-mux package not found.
+
+        When importing the module from the flake, add
+        `overlays = [ ssh-agent-mux.overlays.default ];`
+        or set `services.ssh-agent-mux.package` explicitly.
+      '';
 
   # Expand tilde to $HOME at runtime (launchd will expand it)
   expandPath = path:
@@ -95,7 +107,7 @@ in {
 
     package = mkOption {
       type = types.package;
-      default = pkgs.ssh-agent-mux or (throw "ssh-agent-mux package not found. Add the overlay or provide a custom package.");
+      default = defaultPackage;
       defaultText = literalExpression "pkgs.ssh-agent-mux";
       description = lib.mdDoc ''
         The ssh-agent-mux package to use.
@@ -124,7 +136,7 @@ in {
     # Create launchd user agent
     launchd.user.agents.ssh-agent-mux = {
       serviceConfig = {
-        ProgramArguments = [startScript];
+        ProgramArguments = [builtins.toString startScript];
 
         # Run at load and keep alive
         RunAtLoad = true;

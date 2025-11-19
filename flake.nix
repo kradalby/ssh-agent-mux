@@ -24,13 +24,55 @@
       };
 
       # NixOS module for systemd user service
-      nixosModules.default = import ./nix/modules/nixos.nix;
+      nixosModules.default = {
+        config,
+        lib,
+        pkgs,
+        ...
+      } @ args:
+        let
+          module = import ./nix/modules/nixos.nix;
+        in
+          module
+          (args
+            // {
+              sshAgentMuxPackage =
+                self.packages.${pkgs.stdenv.hostPlatform.system}.ssh-agent-mux;
+            });
 
       # Darwin module for macOS (nix-darwin)
-      darwinModules.default = import ./nix/modules/darwin.nix;
+      darwinModules.default = {
+        config,
+        lib,
+        pkgs,
+        ...
+      } @ args:
+        let
+          module = import ./nix/modules/darwin.nix;
+        in
+          module
+          (args
+            // {
+              sshAgentMuxPackage =
+                self.packages.${pkgs.stdenv.hostPlatform.system}.ssh-agent-mux;
+            });
 
       # Home Manager module for Linux/NixOS
-      homeManagerModules.default = import ./nix/modules/home-manager.nix;
+      homeManagerModules.default = {
+        config,
+        lib,
+        pkgs,
+        ...
+      } @ args:
+        let
+          module = import ./nix/modules/home-manager.nix;
+        in
+          module
+          (args
+            // {
+              sshAgentMuxPackage =
+                self.packages.${pkgs.stdenv.hostPlatform.system}.ssh-agent-mux;
+            });
     }
     // (flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
