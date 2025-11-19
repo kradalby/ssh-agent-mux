@@ -15,16 +15,29 @@ with lib; let
     then "$HOME" + (removePrefix "~" path)
     else path;
 
-  # Build command line arguments
-  args =
-    [
-      "--listen"
-      cfg.listenPath
-      "--log-level"
-      cfg.logLevel
-    ]
-    ++ (optionals cfg.watchForSSHForward ["--watch-for-ssh-forward"])
-    ++ cfg.agentSockets;
+  startScript = pkgs.writeShellScript "ssh-agent-mux-launchd-start" ''
+    set -euo pipefail
+
+    listen_path=${expandPath cfg.listenPath}
+    listen_dir=$(dirname "$listen_path")
+    mkdir -p "$listen_dir"
+    rm -f "$listen_path"
+
+    args=(
+      --listen "$listen_path"
+      --log-level ${cfg.logLevel}
+    )
+
+    ${optionalString cfg.watchForSSHForward "args+=(--watch-for-ssh-forward)"}
+
+    ${
+      concatMapStrings
+      (socket: ''args+=("${expandPath socket}")\n'')
+      cfg.agentSockets
+    }
+
+    exec ${cfg.package}/bin/ssh-agent-mux "''${args[@]}"
+  '';
 in {
   options.services.ssh-agent-mux = {
     enable = mkEnableOption "SSH Agent Mux service";
@@ -111,7 +124,7 @@ in {
     # Create launchd user agent
     launchd.user.agents.ssh-agent-mux = {
       serviceConfig = {
-        ProgramArguments = ["${cfg.package}/bin/ssh-agent-mux"] ++ args;
+        ProgramArguments = [startScript];
 
         # Run at load and keep alive
         RunAtLoad = true;
