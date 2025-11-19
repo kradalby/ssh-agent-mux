@@ -42,11 +42,8 @@ with lib; let
 
     ${optionalString cfg.watchForSSHForward "args+=(--watch-for-ssh-forward)"}
 
-    ${
-      concatMapStrings
-      (socket: ''args+=("${expandPath socket}")\n'')
-      cfg.agentSockets
-    }
+    ${concatStringsSep "\n" (map (socket: ''args+=("${expandPath socket}")'') cfg.agentSockets)}
+
 
     exec ${cfg.package}/bin/ssh-agent-mux "''${args[@]}"
   '';
