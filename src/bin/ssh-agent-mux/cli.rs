@@ -11,6 +11,8 @@ use log::LevelFilter;
 
 use crate::service;
 
+const APP_VERSION: &str = env!("SSH_AGENT_MUX_BUILD_VERSION");
+
 fn default_config_path() -> PathBuf {
     let config_dir = env::var_os("XDG_CONFIG_HOME")
         .or_else(|| Some("~/.config".into()))
@@ -24,7 +26,7 @@ fn default_config_path() -> PathBuf {
 }
 
 #[derive(Parser)]
-#[command(author, version, about)]
+#[command(author, version = APP_VERSION, about)]
 struct Args {
     /// Config file
     #[arg(short, long = "config", default_value_os_t = default_config_path())]
