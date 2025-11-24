@@ -130,8 +130,8 @@ in {
         Restart = "on-failure";
         RestartSec = "5s";
 
-        # Security hardening
-        PrivateTmp = true;
+        # Disable private /tmp when we need to inspect forwarded agents
+        PrivateTmp = !cfg.watchForSSHForward;
         NoNewPrivileges = true;
         ProtectSystem = "strict";
         ProtectHome = "read-only";

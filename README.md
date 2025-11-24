@@ -114,6 +114,8 @@ This is useful when SSH-ing into a remote machine and then SSH-ing from that mac
 
 *Default*: `false`
 
+> **Note:** The watcher must see the real system `/tmp`. When running `ssh-agent-mux` as a systemd service (including the provided NixOS/Home Manager modules), make sure the service is not using `PrivateTmp`. The default `--install-service` configuration already leaves `PrivateTmp` disabled; the Nix modules automatically disable it when `watchForSSHForward = true`.
+
 **Example with SSH forwarding detection enabled:**
 
 ```toml

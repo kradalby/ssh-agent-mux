@@ -149,8 +149,8 @@ in {
         Restart = "on-failure";
         RestartSec = "5s";
 
-        # Security hardening - mirror home-manager defaults
-        PrivateTmp = true;
+        # Private /tmp must be disabled when watching for forwarded agents so we can see them
+        PrivateTmp = !cfg.watchForSSHForward;
         NoNewPrivileges = true;
         ProtectSystem = "strict";
         ProtectHome = "read-only";
