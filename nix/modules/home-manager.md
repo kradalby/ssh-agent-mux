@@ -155,7 +155,7 @@ echo $SSH_AUTH_SOCK
 
 The systemd service includes several security hardening options:
 
-- `PrivateTmp=true` - Private /tmp directory
+- `PrivateTmp=true` (unless `watchForSSHForward` is enabled) - Private /tmp directory
 - `NoNewPrivileges=true` - Cannot gain new privileges
 - `ProtectSystem=strict` - Read-only system directories
 - `ProtectHome=read-only` - Read-only home directory (except socket directory)
