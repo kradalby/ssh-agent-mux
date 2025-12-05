@@ -1,7 +1,7 @@
 use std::{env, fs::File, io::Read, path::PathBuf};
 
 use clap_serde_derive::{
-    clap::{self, Parser, ValueEnum},
+    clap::{self, Parser, Subcommand, ValueEnum},
     serde::{self, Deserialize, Serialize},
     ClapSerde,
 };
@@ -25,24 +25,83 @@ fn default_config_path() -> PathBuf {
         .join(concat!(env!("CARGO_PKG_NAME"), ".toml"))
 }
 
+fn default_listen_path() -> PathBuf {
+    PathBuf::from(concat!("~/.ssh/", env!("CARGO_PKG_NAME"), ".sock"))
+}
+
+/// Derive control socket path from listen path
+pub fn derive_control_path(listen_path: &PathBuf) -> PathBuf {
+    ssh_agent_mux::control::default_control_path(listen_path)
+}
+
 #[derive(Parser)]
 #[command(author, version = APP_VERSION, about)]
-struct Args {
+pub struct Args {
     /// Config file
     #[arg(short, long = "config", default_value_os_t = default_config_path())]
-    config_path: PathBuf,
+    pub config_path: PathBuf,
+
+    /// Control socket path (for client commands)
+    #[arg(long = "control-socket", global = true)]
+    pub control_socket: Option<PathBuf>,
+
+    /// Output in JSON format (for client commands)
+    #[arg(long, global = true)]
+    pub json: bool,
 
     /// Config from file or args
     #[command(flatten)]
-    config: <Config as ClapSerde>::Opt,
+    pub config: <Config as ClapSerde>::Opt,
+
+    /// Subcommand to run
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+/// CLI subcommands for interacting with a running daemon
+#[derive(Subcommand, Clone, Debug)]
+pub enum Command {
+    /// Show daemon status
+    Status,
+
+    /// List upstream agent sockets
+    List,
+
+    /// List all available SSH keys
+    ListKeys,
+
+    /// Re-scan for forwarded agents
+    Reload,
+
+    /// Check socket health, remove stale sockets
+    Validate,
+
+    /// Add a socket to the watched list
+    Add {
+        /// Path to the socket to add
+        path: PathBuf,
+    },
+
+    /// Remove a socket from the watched list
+    Remove {
+        /// Path to the socket to remove
+        path: PathBuf,
+    },
+
+    /// Full health check of all sockets
+    Health,
 }
 
 #[derive(ClapSerde, Clone, Serialize)]
 pub struct Config {
     /// Listen path
-    #[default(PathBuf::from(concat!("~/.ssh/", env!("CARGO_PKG_NAME"), ".sock")))]
+    #[default(default_listen_path())]
     #[arg(short, long = "listen")]
     pub listen_path: PathBuf,
+
+    /// Control socket path (from config file)
+    #[arg(skip)]
+    pub control_socket_path: Option<PathBuf>,
 
     /// Log level for agent
     #[default(LogLevel::Warn)]
@@ -62,6 +121,11 @@ pub struct Config {
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub watch_for_ssh_forward: bool,
 
+    /// Health check interval in seconds (0 to disable)
+    #[default(60u64)]
+    #[arg(long)]
+    pub health_check_interval: u64,
+
     // Following are part of command line args, but
     // not in configuration file
     /// Config file path (not an arg; copied from struct Args)
@@ -76,8 +140,11 @@ pub struct Config {
 
 impl Config {
     pub fn parse() -> EyreResult<Self> {
-        let mut args = Args::parse();
+        let args = Args::parse();
+        Self::from_args(args)
+    }
 
+    pub fn from_args(mut args: Args) -> EyreResult<Self> {
         let mut config = if let Ok(mut f) = File::open(&args.config_path) {
             log::info!("Read configuration from {}", args.config_path.display());
             let mut config_text = String::new();
@@ -100,7 +167,29 @@ impl Config {
             .map(|p| p.expand_tilde_owned())
             .collect::<Result<_, _>>()?;
 
+        // Handle control socket path - CLI args take precedence over config file
+        if let Some(ref path) = args.control_socket {
+            config.control_socket_path = Some(path.expand_tilde_owned()?);
+        } else if let Some(ref path) = config.control_socket_path {
+            config.control_socket_path = Some(path.expand_tilde_owned()?);
+        }
+
         Ok(config)
+    }
+
+    /// Get the control socket path, deriving from listen_path if not set
+    pub fn get_control_socket_path(&self) -> PathBuf {
+        self.control_socket_path
+            .clone()
+            .unwrap_or_else(|| derive_control_path(&self.listen_path))
+    }
+}
+
+impl Clone for Args {
+    fn clone(&self) -> Self {
+        // We need to re-parse since ClapSerde::Opt doesn't implement Clone
+        // This is only called once at startup so it's acceptable
+        Args::parse()
     }
 }
 
