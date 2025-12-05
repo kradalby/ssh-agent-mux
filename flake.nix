@@ -149,6 +149,9 @@
           cargoLock.lockFile = ./Cargo.lock;
           inherit nativeBuildInputs buildInputs nativeCheckInputs;
 
+          # Enable systemd feature on Linux for sd_notify support
+          buildFeatures = pkgs.lib.optionals pkgs.stdenv.isLinux ["systemd"];
+
           # Disable tests during build - they timeout in Nix sandbox
           doCheck = false;
 

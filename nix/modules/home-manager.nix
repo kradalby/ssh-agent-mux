@@ -27,6 +27,15 @@ with lib; let
     then "${config.home.homeDirectory}" + (removePrefix "~" path)
     else path;
 
+  # Derive control socket path from listen path
+  deriveControlPath = listenPath:
+    let
+      expanded = expandPath listenPath;
+      base = if hasSuffix ".sock" expanded
+        then removeSuffix ".sock" expanded
+        else expanded;
+    in "${base}.ctl";
+
   # Build command line arguments
   args =
     [
@@ -35,6 +44,14 @@ with lib; let
       "--log-level"
       cfg.logLevel
     ]
+    ++ (optionals (cfg.controlSocketPath != null) [
+      "--control-socket"
+      cfg.controlSocketPath
+    ])
+    ++ (optionals (cfg.healthCheckInterval > 0) [
+      "--health-check-interval"
+      (toString cfg.healthCheckInterval)
+    ])
     ++ (optionals cfg.watchForSSHForward ["--watch-for-ssh-forward"])
     ++ cfg.agentSockets;
 in {
@@ -69,6 +86,17 @@ in {
       '';
     };
 
+    controlSocketPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = lib.mdDoc ''
+        Path for the control socket used by CLI commands.
+
+        If not set, defaults to the listen path with `.ctl` extension
+        instead of `.sock` (e.g., `~/.ssh/ssh-agent-mux.ctl`).
+      '';
+    };
+
     watchForSSHForward = mkOption {
       type = types.bool;
       default = false;
@@ -78,6 +106,16 @@ in {
         When enabled, ssh-agent-mux will watch for SSH agent sockets
         forwarded via `ssh -A` and automatically include them in the
         multiplexed agent. Forwarded agents are prioritized (newest first).
+      '';
+    };
+
+    healthCheckInterval = mkOption {
+      type = types.ints.unsigned;
+      default = 60;
+      description = lib.mdDoc ''
+        Interval in seconds between health checks of upstream agent sockets.
+
+        Set to 0 to disable periodic health checks.
       '';
     };
 
@@ -110,6 +148,32 @@ in {
         This is automatically set as `SSH_AUTH_SOCK` in your environment.
       '';
     };
+
+    controlPath = mkOption {
+      type = types.str;
+      readOnly = true;
+      default = if cfg.controlSocketPath != null
+        then expandPath cfg.controlSocketPath
+        else deriveControlPath cfg.listenPath;
+      description = lib.mdDoc ''
+        Resolved absolute path to the control socket.
+
+        Used by CLI commands like `ssh-agent-mux status`.
+      '';
+    };
+
+    watchdogSec = mkOption {
+      type = types.ints.unsigned;
+      default = 30;
+      description = lib.mdDoc ''
+        Watchdog interval in seconds for systemd health monitoring.
+
+        The daemon will send periodic watchdog pings to systemd. If systemd
+        doesn't receive a ping within this interval, it will restart the service.
+
+        Set to 0 to disable systemd watchdog monitoring.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -125,10 +189,16 @@ in {
       };
 
       Service = {
-        Type = "simple";
+        # Use Type=notify for proper systemd integration
+        # The daemon sends READY=1 when it's ready to accept connections
+        Type = "notify";
         ExecStart = "${cfg.package}/bin/ssh-agent-mux ${escapeShellArgs args}";
         Restart = "on-failure";
         RestartSec = "5s";
+
+        # Watchdog: systemd will restart the service if it doesn't receive
+        # periodic pings within this interval (the daemon pings during health checks)
+        WatchdogSec = mkIf (cfg.watchdogSec > 0) cfg.watchdogSec;
 
         # Disable private /tmp when we need to inspect forwarded agents
         PrivateTmp = !cfg.watchForSSHForward;
@@ -136,9 +206,10 @@ in {
         ProtectSystem = "strict";
         ProtectHome = "read-only";
 
-        # Allow writing to socket directory
+        # Allow writing to socket directory (for both listen and control sockets)
         ReadWritePaths = [
           (dirOf cfg.socketPath)
+          (dirOf cfg.controlPath)
         ];
       };
 
