@@ -10,6 +10,10 @@ version = "0.0.0-git"
 edition = "2021"
 rust-version = "1.81.0"
 
+[features]
+default = []
+systemd = ["sd-notify"]
+
 [dependencies]
 clap-serde-derive = "0.2.1"
 expand-tilde = "=0.6.0"
@@ -18,6 +22,9 @@ ssh-agent-lib = "0.5.1"
 toml = "0.8.22"
 notify = "8.2"
 notify-debouncer-full = "0.5"
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+sd-notify = { version = "0.4", optional = true }
 
 [dependencies.color-eyre]
 version = "0.6.3"
@@ -38,7 +45,7 @@ default-features = false
 
 [dependencies.tokio]
 version = "1.45.0"
-features = ["rt", "macros", "signal", "sync", "fs"]
+features = ["rt", "macros", "signal", "sync", "fs", "io-util", "net", "time"]
 
 [dev-dependencies]
 duct = "1.0.0"
