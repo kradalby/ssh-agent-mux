@@ -27,17 +27,27 @@ with lib; let
     then "$HOME" + (removePrefix "~" path)
     else path;
 
+  # Derive control socket path from listen path
+  deriveControlPath = listenPath:
+    let
+      base = if hasSuffix ".sock" listenPath
+        then removeSuffix ".sock" listenPath
+        else listenPath;
+    in "${base}.ctl";
+
   startScript = pkgs.writeShellScript "ssh-agent-mux-launchd-start" ''
     set -euo pipefail
 
     listen_path=${expandPath cfg.listenPath}
+    control_path=${expandPath (if cfg.controlSocketPath != null then cfg.controlSocketPath else deriveControlPath cfg.listenPath)}
     listen_dir=$(dirname "$listen_path")
     mkdir -p "$listen_dir"
-    rm -f "$listen_path"
+    rm -f "$listen_path" "$control_path"
 
     args=(
       --listen "$listen_path"
       --log-level ${cfg.logLevel}
+      --health-check-interval ${toString cfg.healthCheckInterval}
     )
 
     ${optionalString cfg.watchForSSHForward "args+=(--watch-for-ssh-forward)"}
@@ -80,6 +90,17 @@ in {
       '';
     };
 
+    controlSocketPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = lib.mdDoc ''
+        Path for the control socket used by CLI commands.
+
+        If not set, defaults to the listen path with `.ctl` extension
+        instead of `.sock` (e.g., `~/.ssh/ssh-agent-mux.ctl`).
+      '';
+    };
+
     watchForSSHForward = mkOption {
       type = types.bool;
       default = false;
@@ -89,6 +110,16 @@ in {
         When enabled, ssh-agent-mux will watch for SSH agent sockets
         forwarded via `ssh -A` and automatically include them in the
         multiplexed agent. Forwarded agents are prioritized (newest first).
+      '';
+    };
+
+    healthCheckInterval = mkOption {
+      type = types.ints.unsigned;
+      default = 60;
+      description = lib.mdDoc ''
+        Interval in seconds between health checks of upstream agent sockets.
+
+        Set to 0 to disable periodic health checks.
       '';
     };
 
@@ -124,6 +155,18 @@ in {
         ```
       '';
     };
+
+    controlPath = mkOption {
+      type = types.str;
+      readOnly = true;
+      default = expandPath (if cfg.controlSocketPath != null then cfg.controlSocketPath else deriveControlPath cfg.listenPath);
+      description = lib.mdDoc ''
+        Resolved control socket path for CLI commands.
+
+        `~` is automatically expanded into ``$HOME`` for convenience.
+      '';
+    };
+
   };
 
   config = mkIf cfg.enable {
