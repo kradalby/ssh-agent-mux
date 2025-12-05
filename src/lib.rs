@@ -17,6 +17,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
+pub mod control;
 pub mod socket_manager;
 pub mod watcher;
 
