@@ -14,7 +14,6 @@ use tokio::sync::Mutex;
 mod cli;
 mod commands;
 mod logging;
-mod service;
 mod systemd;
 
 const BUILD_VERSION: &str = env!("SSH_AGENT_MUX_BUILD_VERSION");
@@ -84,10 +83,6 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
         BUILD_VERSION,
         GIT_DESCRIBE
     );
-
-    if config.service.any() {
-        return service::handle_service_command(&config);
-    }
 
     let mut sigterm = signal::unix::signal(SignalKind::terminate())?;
     let mut sighup = signal::unix::signal(SignalKind::hangup())?;
