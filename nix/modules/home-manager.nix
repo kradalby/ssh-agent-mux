@@ -164,12 +164,12 @@ in {
 
     watchdogSec = mkOption {
       type = types.ints.unsigned;
-      default = 30;
+      default = 60;
       description = lib.mdDoc ''
         Watchdog interval in seconds for systemd health monitoring.
 
-        The daemon will send periodic watchdog pings to systemd. If systemd
-        doesn't receive a ping within this interval, it will restart the service.
+        The daemon pings at half this interval after completing health checks.
+        If systemd doesn't receive a ping within this interval, it restarts the service.
 
         Set to 0 to disable systemd watchdog monitoring.
       '';
