@@ -198,9 +198,15 @@ async fn run_daemon() -> EyreResult<()> {
         None
     };
 
+    // Get paths for sockets
+    let listen_sock = config.listen_path.clone();
+    let control_sock = config.get_control_socket_path();
+
     // Start health check task that also pings systemd watchdog
     if let Some(interval) = health_interval {
         let manager = socket_manager.clone();
+        let listen_path = listen_sock.clone();
+        let control_path = control_sock.clone();
 
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
@@ -210,7 +216,24 @@ async fn run_daemon() -> EyreResult<()> {
             loop {
                 ticker.tick().await;
 
-                // Run actual health check
+                // Check daemon health: our own sockets must exist
+                if !listen_path.exists() {
+                    log::error!("Listen socket {} gone, exiting", listen_path.display());
+                    std::process::exit(1);
+                }
+                if !control_path.exists() {
+                    log::error!("Control socket {} gone, exiting", control_path.display());
+                    std::process::exit(1);
+                }
+
+                // Check we can still write to socket directory
+                let socket_dir = listen_path.parent().unwrap_or(&listen_path);
+                if let Err(e) = std::fs::metadata(socket_dir) {
+                    log::error!("Cannot access socket dir {}: {}, exiting", socket_dir.display(), e);
+                    std::process::exit(1);
+                }
+
+                // Run upstream socket health check
                 let mut mgr = manager.lock().await;
                 let removed = mgr.validate_and_cleanup();
                 if !removed.is_empty() {
@@ -228,10 +251,6 @@ async fn run_daemon() -> EyreResult<()> {
 
         log::info!("Health check task started (interval: {:?})", interval);
     }
-
-    // Get paths for sockets
-    let listen_sock = config.listen_path.clone();
-    let control_sock = config.get_control_socket_path();
 
     // Create control server state
     let control_state = Arc::new(ControlServerState {
