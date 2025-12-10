@@ -9,8 +9,6 @@ use color_eyre::eyre::Result as EyreResult;
 use expand_tilde::ExpandTilde;
 use log::LevelFilter;
 
-use crate::service;
-
 const APP_VERSION: &str = env!("SSH_AGENT_MUX_BUILD_VERSION");
 
 fn default_config_path() -> PathBuf {
@@ -142,9 +140,6 @@ pub struct Config {
     #[serde(skip_deserializing, skip_serializing)]
     pub config_path: PathBuf,
 
-    #[serde(skip_deserializing, skip_serializing)]
-    #[command(flatten)]
-    pub service: service::ServiceArgs,
 }
 
 impl Config {
