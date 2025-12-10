@@ -44,30 +44,28 @@ fn main() -> ExitCode {
     // Parse CLI arguments
     let args = cli::Args::parse();
 
-    // Check if we're running a client command
-    if let Some(ref command) = args.command {
-        // For client commands, we just need the control socket path
-        let control_socket = args
-            .control_socket
-            .clone()
-            .unwrap_or_else(|| cli::derive_control_path(&args.config_path));
+    // Determine output format for client commands
+    let format = if args.json {
+        commands::OutputFormat::Json
+    } else {
+        commands::OutputFormat::Human
+    };
 
-        // Determine output format
-        let format = if args.json {
-            commands::OutputFormat::Json
-        } else {
-            commands::OutputFormat::Human
-        };
-
-        return commands::run_command(command, &control_socket, format);
-    }
-
-    // Run the daemon
-    match run_daemon() {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            ExitCode::FAILURE
+    match args.command {
+        cli::Command::Serve { config_path, config } => {
+            // Run the daemon
+            match run_daemon(config_path, config) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        ref cmd => {
+            // Client command - use auto-detected or specified control socket
+            let control_socket = args.get_control_socket();
+            commands::run_command(cmd, &control_socket, format)
         }
     }
 }
@@ -76,8 +74,8 @@ fn main() -> ExitCode {
 // accessed by only one user, at the start of each SSH session, so it doesn't need tokio's powerful
 // async multithreading
 #[tokio::main(flavor = "current_thread")]
-async fn run_daemon() -> EyreResult<()> {
-    let mut config = cli::Config::parse()?;
+async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as clap_serde_derive::ClapSerde>::Opt) -> EyreResult<()> {
+    let config = cli::Config::from_serve_args(config_path, config_opt)?;
 
     // LoggerHandle must be held until program termination so file logging takes place
     let _logger = logging::setup_logger(config.log_level.into(), config.log_file.as_deref())?;
@@ -292,21 +290,28 @@ async fn run_daemon() -> EyreResult<()> {
             _ = signal::ctrl_c() => { log::info!("Exiting on SIGINT"); break },
             Some(_) = sigterm.recv() => { log::info!("Exiting on SIGTERM"); break },
             Some(_) = sighup.recv() => {
-                log::info!("Reloading configuration");
-                config = cli::Config::parse()?;
-                // Update socket manager with new configured sockets
-                let mut manager = socket_manager.lock().await;
-                manager.update_configured(config.agent_sock_paths.clone());
+                log::info!("Reloading configuration from {}", config.config_path.display());
+                // Re-read config file, keeping existing CLI options
+                if let Ok(mut f) = std::fs::File::open(&config.config_path) {
+                    use std::io::Read;
+                    let mut config_text = String::new();
+                    if f.read_to_string(&mut config_text).is_ok() {
+                        if let Ok(file_config) = toml::from_str::<toml::Value>(&config_text) {
+                            if let Some(sockets) = file_config.get("agent_sock_paths").and_then(|v| v.as_array()) {
+                                let new_sockets: Vec<std::path::PathBuf> = sockets
+                                    .iter()
+                                    .filter_map(|v| v.as_str())
+                                    .filter_map(|s| expand_tilde::ExpandTilde::expand_tilde_owned(&std::path::PathBuf::from(s)).ok())
+                                    .collect();
+                                let mut manager = socket_manager.lock().await;
+                                manager.update_configured(new_sockets);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
     Ok(())
-}
-
-// Re-export Args::parse for cli module
-impl cli::Args {
-    pub fn parse() -> Self {
-        <Self as clap_serde_derive::clap::Parser>::parse()
-    }
 }

@@ -45,6 +45,7 @@ with lib; let
     rm -f "$listen_path" "$control_path"
 
     args=(
+      serve
       --listen "$listen_path"
       --log-level ${cfg.logLevel}
       --health-check-interval ${toString cfg.healthCheckInterval}

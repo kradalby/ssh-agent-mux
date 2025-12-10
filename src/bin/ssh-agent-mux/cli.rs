@@ -34,33 +34,41 @@ pub fn derive_control_path(listen_path: &PathBuf) -> PathBuf {
     ssh_agent_mux::control::default_control_path(listen_path)
 }
 
+/// Get the default control socket path for client commands
+pub fn default_control_socket() -> PathBuf {
+    derive_control_path(&default_listen_path().expand_tilde_owned().unwrap_or_default())
+}
+
 #[derive(Parser)]
 #[command(author, version = APP_VERSION, about)]
 pub struct Args {
-    /// Config file
-    #[arg(short, long = "config", default_value_os_t = default_config_path())]
-    pub config_path: PathBuf,
-
     /// Control socket path (for client commands)
-    #[arg(long = "control-socket", global = true)]
+    #[arg(long = "control-socket", short = 's', global = true)]
     pub control_socket: Option<PathBuf>,
 
-    /// Output in JSON format (for client commands)
+    /// Output in JSON format
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// Config from file or args
-    #[command(flatten)]
-    pub config: <Config as ClapSerde>::Opt,
-
     /// Subcommand to run
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Command,
 }
 
-/// CLI subcommands for interacting with a running daemon
-#[derive(Subcommand, Clone, Debug)]
+/// CLI commands
+#[derive(Subcommand)]
 pub enum Command {
+    /// Run the daemon (serve mode)
+    Serve {
+        /// Config file
+        #[arg(short, long = "config", default_value_os_t = default_config_path())]
+        config_path: PathBuf,
+
+        /// Config from file or args
+        #[command(flatten)]
+        config: <Config as ClapSerde>::Opt,
+    },
+
     /// Show daemon status
     Status,
 
@@ -91,6 +99,7 @@ pub enum Command {
     /// Full health check of all sockets
     Health,
 }
+
 
 #[derive(ClapSerde, Clone, Serialize)]
 pub struct Config {
@@ -139,23 +148,18 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn parse() -> EyreResult<Self> {
-        let args = Args::parse();
-        Self::from_args(args)
-    }
-
-    pub fn from_args(mut args: Args) -> EyreResult<Self> {
-        let mut config = if let Ok(mut f) = File::open(&args.config_path) {
-            log::info!("Read configuration from {}", args.config_path.display());
+    pub fn from_serve_args(config_path: PathBuf, mut config_opt: <Config as ClapSerde>::Opt) -> EyreResult<Self> {
+        let mut config = if let Ok(mut f) = File::open(&config_path) {
+            log::info!("Read configuration from {}", config_path.display());
             let mut config_text = String::new();
             f.read_to_string(&mut config_text)?;
             let file_config = toml::from_str::<<Config as ClapSerde>::Opt>(&config_text)?;
-            Config::from(file_config).merge(&mut args.config)
+            Config::from(file_config).merge(&mut config_opt)
         } else {
-            Config::from(&mut args.config)
+            Config::from(&mut config_opt)
         };
 
-        config.config_path = args.config_path;
+        config.config_path = config_path;
         config.listen_path = config.listen_path.expand_tilde_owned()?;
         config.log_file = config
             .log_file
@@ -167,10 +171,8 @@ impl Config {
             .map(|p| p.expand_tilde_owned())
             .collect::<Result<_, _>>()?;
 
-        // Handle control socket path - CLI args take precedence over config file
-        if let Some(ref path) = args.control_socket {
-            config.control_socket_path = Some(path.expand_tilde_owned()?);
-        } else if let Some(ref path) = config.control_socket_path {
+        // Expand control socket path if set in config
+        if let Some(ref path) = config.control_socket_path {
             config.control_socket_path = Some(path.expand_tilde_owned()?);
         }
 
@@ -182,14 +184,6 @@ impl Config {
         self.control_socket_path
             .clone()
             .unwrap_or_else(|| derive_control_path(&self.listen_path))
-    }
-}
-
-impl Clone for Args {
-    fn clone(&self) -> Self {
-        // We need to re-parse since ClapSerde::Opt doesn't implement Clone
-        // This is only called once at startup so it's acceptable
-        Args::parse()
     }
 }
 
@@ -213,5 +207,19 @@ impl From<LogLevel> for LevelFilter {
             LogLevel::Debug => LevelFilter::Debug,
             LogLevel::Trace => LevelFilter::Trace,
         }
+    }
+}
+
+impl Args {
+    pub fn parse() -> Self {
+        <Self as clap::Parser>::parse()
+    }
+
+    /// Get the control socket path for client commands
+    pub fn get_control_socket(&self) -> PathBuf {
+        self.control_socket
+            .clone()
+            .map(|p| p.expand_tilde_owned().unwrap_or(p))
+            .unwrap_or_else(default_control_socket)
     }
 }
