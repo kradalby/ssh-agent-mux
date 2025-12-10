@@ -181,10 +181,25 @@ async fn run_daemon() -> EyreResult<()> {
         None
     };
 
-    // Start health check background task if enabled
-    // This also handles systemd watchdog pings
-    if config.health_check_interval > 0 {
-        let interval = Duration::from_secs(config.health_check_interval);
+    // Determine health check interval:
+    // - If systemd watchdog is enabled, use half the watchdog timeout
+    // - Otherwise use the configured interval (if any)
+    // This ensures watchdog pings happen after real health checks
+    let health_interval = if let Some(watchdog_usec) = systemd::watchdog_enabled() {
+        let watchdog_interval = Duration::from_micros(watchdog_usec / 2);
+        log::info!(
+            "systemd watchdog enabled, health check interval: {:?}",
+            watchdog_interval
+        );
+        Some(watchdog_interval)
+    } else if config.health_check_interval > 0 {
+        Some(Duration::from_secs(config.health_check_interval))
+    } else {
+        None
+    };
+
+    // Start health check task that also pings systemd watchdog
+    if let Some(interval) = health_interval {
         let manager = socket_manager.clone();
 
         tokio::spawn(async move {
@@ -194,6 +209,8 @@ async fn run_daemon() -> EyreResult<()> {
 
             loop {
                 ticker.tick().await;
+
+                // Run actual health check
                 let mut mgr = manager.lock().await;
                 let removed = mgr.validate_and_cleanup();
                 if !removed.is_empty() {
@@ -202,35 +219,14 @@ async fn run_daemon() -> EyreResult<()> {
                         removed.len()
                     );
                 }
+                drop(mgr);
 
-                // Notify systemd watchdog that we're still alive
+                // Ping watchdog after successful health check
                 systemd::notify_watchdog();
             }
         });
 
-        log::info!(
-            "Health check task started (interval: {}s)",
-            config.health_check_interval
-        );
-    } else {
-        // Even without health checks, we need watchdog support if systemd expects it
-        // Check if systemd watchdog is enabled and start a dedicated ping task
-        if let Some(watchdog_usec) = systemd::watchdog_enabled() {
-            let watchdog_interval = Duration::from_micros(watchdog_usec / 2);
-            log::info!(
-                "systemd watchdog enabled, pinging every {:?}",
-                watchdog_interval
-            );
-
-            tokio::spawn(async move {
-                let mut ticker = tokio::time::interval(watchdog_interval);
-                ticker.tick().await; // Skip first immediate tick
-                loop {
-                    ticker.tick().await;
-                    systemd::notify_watchdog();
-                }
-            });
-        }
+        log::info!("Health check task started (interval: {:?})", interval);
     }
 
     // Get paths for sockets
