@@ -10,7 +10,8 @@
 /// the service is not considered started until this notification is sent.
 #[cfg(feature = "systemd")]
 pub fn notify_ready() {
-    match sd_notify::notify(true, &[sd_notify::NotifyState::Ready]) {
+    // Use false to keep NOTIFY_SOCKET for subsequent notifications (watchdog pings)
+    match sd_notify::notify(false, &[sd_notify::NotifyState::Ready]) {
         Ok(()) => log::debug!("Sent READY notification to systemd"),
         Err(e) => log::debug!("Failed to notify systemd (not running under systemd?): {}", e),
     }
@@ -28,9 +29,10 @@ pub fn notify_ready() {
 /// a watchdog ping within the configured interval, it will restart the service.
 #[cfg(feature = "systemd")]
 pub fn notify_watchdog() {
-    match sd_notify::notify(true, &[sd_notify::NotifyState::Watchdog]) {
-        Ok(()) => log::trace!("Sent WATCHDOG ping to systemd"),
-        Err(e) => log::trace!("Failed to send watchdog ping: {}", e),
+    // Use false to keep NOTIFY_SOCKET for subsequent watchdog pings
+    match sd_notify::notify(false, &[sd_notify::NotifyState::Watchdog]) {
+        Ok(()) => log::debug!("Sent WATCHDOG ping to systemd"),
+        Err(e) => log::warn!("Failed to send watchdog ping: {}", e),
     }
 }
 
@@ -44,7 +46,8 @@ pub fn notify_watchdog() {
 /// This updates the status line shown by `systemctl status`.
 #[cfg(feature = "systemd")]
 pub fn notify_status(status: &str) {
-    match sd_notify::notify(true, &[sd_notify::NotifyState::Status(status)]) {
+    // Use false to keep NOTIFY_SOCKET for subsequent notifications
+    match sd_notify::notify(false, &[sd_notify::NotifyState::Status(status)]) {
         Ok(()) => log::trace!("Updated systemd status: {}", status),
         Err(e) => log::trace!("Failed to update status: {}", e),
     }
@@ -61,7 +64,8 @@ pub fn notify_status(_status: &str) {
 #[cfg(feature = "systemd")]
 pub fn watchdog_enabled() -> Option<u64> {
     let mut usec = 0u64;
-    if sd_notify::watchdog_enabled(true, &mut usec) {
+    // Use false to keep WATCHDOG_USEC/WATCHDOG_PID in environment (though not strictly needed)
+    if sd_notify::watchdog_enabled(false, &mut usec) {
         Some(usec)
     } else {
         None
