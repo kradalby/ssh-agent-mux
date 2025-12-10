@@ -39,6 +39,7 @@ with lib; let
   # Build command line arguments
   args =
     [
+      "serve"
       "--listen"
       cfg.listenPath
       "--log-level"

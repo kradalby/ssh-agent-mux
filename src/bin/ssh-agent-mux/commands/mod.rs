@@ -30,6 +30,10 @@ pub fn run_command(
     };
 
     match command {
+        crate::cli::Command::Serve { .. } => {
+            // Should never reach here - serve is handled in main
+            unreachable!("Serve command should be handled in main")
+        }
         crate::cli::Command::Status => cmd_status(&mut client, format),
         crate::cli::Command::List => cmd_list(&mut client, format),
         crate::cli::Command::ListKeys => cmd_list_keys(&mut client, format),

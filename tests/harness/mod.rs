@@ -52,6 +52,7 @@ impl SshAgentInstance {
             SshAgentType::OpenSsh => cmd!("ssh-agent", "-d", "-a", &sock_path),
             SshAgentType::Mux => cmd!(
                 env!("CARGO_BIN_EXE_ssh-agent-mux"),
+                "serve",
                 "--log-level",
                 "trace",
                 "--listen",
