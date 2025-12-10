@@ -155,6 +155,9 @@
           # Disable tests during build - they timeout in Nix sandbox
           doCheck = false;
 
+          # Pass git revision to build.rs since .git isn't available in Nix sandbox
+          GIT_REV = self.shortRev or self.dirtyShortRev or "unknown";
+
           env =
             env
             // {

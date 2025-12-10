@@ -5,9 +5,17 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs");
+    println!("cargo:rerun-if-env-changed=GIT_REV");
 
     let pkg_version = env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".to_string());
-    let git_desc = git_describe().unwrap_or_else(|_| "unknown".to_string());
+
+    // Try GIT_REV env var first (set by Nix build), then git describe
+    let git_desc = env::var("GIT_REV")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| git_describe().ok())
+        .unwrap_or_else(|| "unknown".to_string());
+
     println!("cargo:rustc-env=SSH_AGENT_MUX_GIT_DESCRIBE={}", git_desc);
     println!(
         "cargo:rustc-env=SSH_AGENT_MUX_BUILD_VERSION={}",
