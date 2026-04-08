@@ -112,7 +112,7 @@
       nativeBuildInputs = with pkgs;
         []
         ++ lib.optionals stdenv.isLinux [
-          mold-wrapped
+          mold
         ];
 
       buildInputs = [];
