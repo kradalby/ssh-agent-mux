@@ -214,7 +214,7 @@ impl std::fmt::Display for WatcherStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WatcherStatus::Active => write!(f, "active"),
-            WatcherStatus::PollingFallback(reason) => write!(f, "polling ({})", reason),
+            WatcherStatus::PollingFallback(reason) => write!(f, "polling ({reason})"),
             WatcherStatus::Disabled => write!(f, "disabled"),
         }
     }
@@ -250,7 +250,10 @@ mod tests {
             path: "/tmp/test.sock".to_string(),
         };
         let json = serde_json::to_string(&req).unwrap();
-        assert_eq!(json, r#"{"type":"AddSocket","data":{"path":"/tmp/test.sock"}}"#);
+        assert_eq!(
+            json,
+            r#"{"type":"AddSocket","data":{"path":"/tmp/test.sock"}}"#
+        );
 
         let parsed: ControlRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, req);
@@ -518,7 +521,7 @@ mod tests {
         for req in requests {
             let json = serde_json::to_string(&req).unwrap();
             let parsed: ControlRequest = serde_json::from_str(&json).unwrap();
-            assert_eq!(parsed, req, "Failed roundtrip for {:?}", req);
+            assert_eq!(parsed, req, "Failed roundtrip for {req:?}");
         }
     }
 }

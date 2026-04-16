@@ -13,7 +13,7 @@ pub fn notify_ready() {
     // Use false to keep NOTIFY_SOCKET for subsequent notifications (watchdog pings)
     match sd_notify::notify(false, &[sd_notify::NotifyState::Ready]) {
         Ok(()) => log::debug!("Sent READY notification to systemd"),
-        Err(e) => log::debug!("Failed to notify systemd (not running under systemd?): {}", e),
+        Err(e) => log::debug!("Failed to notify systemd (not running under systemd?): {e}"),
     }
 }
 
@@ -32,7 +32,7 @@ pub fn notify_watchdog() {
     // Use false to keep NOTIFY_SOCKET for subsequent watchdog pings
     match sd_notify::notify(false, &[sd_notify::NotifyState::Watchdog]) {
         Ok(()) => log::debug!("Sent WATCHDOG ping to systemd"),
-        Err(e) => log::warn!("Failed to send watchdog ping: {}", e),
+        Err(e) => log::warn!("Failed to send watchdog ping: {e}"),
     }
 }
 
@@ -48,8 +48,8 @@ pub fn notify_watchdog() {
 pub fn notify_status(status: &str) {
     // Use false to keep NOTIFY_SOCKET for subsequent notifications
     match sd_notify::notify(false, &[sd_notify::NotifyState::Status(status)]) {
-        Ok(()) => log::trace!("Updated systemd status: {}", status),
-        Err(e) => log::trace!("Failed to update status: {}", e),
+        Ok(()) => log::trace!("Updated systemd status: {status}"),
+        Err(e) => log::trace!("Failed to update status: {e}"),
     }
 }
 

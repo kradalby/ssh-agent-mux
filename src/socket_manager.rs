@@ -162,7 +162,7 @@ impl SocketManager {
 
     /// Remove a watched socket
     pub fn remove_watched(&mut self, path: &PathBuf) -> bool {
-        if let Some(_) = self.watched_sockets.remove(path) {
+        if self.watched_sockets.remove(path).is_some() {
             log::info!("Removed watched socket: {}", path.display());
             self.log_state(format!(
                 "Active sockets after removing forwarded agent {}",
@@ -397,10 +397,7 @@ mod tests {
 
     #[test]
     fn test_total_count() {
-        let configured = vec![
-            PathBuf::from("/tmp/c1.sock"),
-            PathBuf::from("/tmp/c2.sock"),
-        ];
+        let configured = vec![PathBuf::from("/tmp/c1.sock"), PathBuf::from("/tmp/c2.sock")];
         let mut manager = SocketManager::new(configured);
         assert_eq!(manager.total_count(), 2);
 

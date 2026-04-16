@@ -36,7 +36,7 @@ fn install_eyre_hook() -> EyreResult<()> {
 fn main() -> ExitCode {
     // Install eyre hook for nice error formatting
     if let Err(e) = install_eyre_hook() {
-        eprintln!("Failed to install error hook: {}", e);
+        eprintln!("Failed to install error hook: {e}");
         return ExitCode::FAILURE;
     }
 
@@ -51,12 +51,15 @@ fn main() -> ExitCode {
     };
 
     match args.command {
-        cli::Command::Serve { config_path, config } => {
+        cli::Command::Serve {
+            config_path,
+            config,
+        } => {
             // Run the daemon
             match run_daemon(config_path, config) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                     ExitCode::FAILURE
                 }
             }
@@ -73,16 +76,15 @@ fn main() -> ExitCode {
 // accessed by only one user, at the start of each SSH session, so it doesn't need tokio's powerful
 // async multithreading
 #[tokio::main(flavor = "current_thread")]
-async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as clap_serde_derive::ClapSerde>::Opt) -> EyreResult<()> {
+async fn run_daemon(
+    config_path: std::path::PathBuf,
+    config_opt: <cli::Config as clap_serde_derive::ClapSerde>::Opt,
+) -> EyreResult<()> {
     let config = cli::Config::from_serve_args(config_path, config_opt)?;
 
     // LoggerHandle must be held until program termination so file logging takes place
     let _logger = logging::setup_logger(config.log_level.into(), config.log_file.as_deref())?;
-    log::info!(
-        "Starting ssh-agent-mux version {}; commit {}",
-        BUILD_VERSION,
-        GIT_DESCRIBE
-    );
+    log::info!("Starting ssh-agent-mux version {BUILD_VERSION}; commit {GIT_DESCRIBE}");
 
     let mut sigterm = signal::unix::signal(SignalKind::terminate())?;
     let mut sighup = signal::unix::signal(SignalKind::hangup())?;
@@ -116,7 +118,7 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
                 }
             }
             Err(e) => {
-                log::warn!("Failed to scan for existing agents: {}", e);
+                log::warn!("Failed to scan for existing agents: {e}");
             }
         }
 
@@ -138,13 +140,17 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
                 let reason = watch_result
                     .fallback_reason
                     .unwrap_or_else(|| "Unknown error".to_string());
-                log::warn!("Using polling fallback: {}", reason);
+                log::warn!("Using polling fallback: {reason}");
                 watcher_status = WatcherStatus::PollingFallback(reason);
 
                 // Start the polling loop
                 let poll_interval = Duration::from_secs(30); // Default 30s polling
                 let shutdown_rx = shutdown_tx.subscribe();
-                tokio::spawn(watcher::run_polling_loop(tx.clone(), poll_interval, shutdown_rx));
+                tokio::spawn(watcher::run_polling_loop(
+                    tx.clone(),
+                    poll_interval,
+                    shutdown_rx,
+                ));
 
                 None
             }
@@ -180,10 +186,7 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
     // This ensures watchdog pings happen after real health checks
     let health_interval = if let Some(watchdog_usec) = systemd::watchdog_enabled() {
         let watchdog_interval = Duration::from_micros(watchdog_usec / 2);
-        log::info!(
-            "systemd watchdog enabled, health check interval: {:?}",
-            watchdog_interval
-        );
+        log::info!("systemd watchdog enabled, health check interval: {watchdog_interval:?}");
         Some(watchdog_interval)
     } else if config.health_check_interval > 0 {
         Some(Duration::from_secs(config.health_check_interval))
@@ -222,7 +225,11 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
                 // Check we can still write to socket directory
                 let socket_dir = listen_path.parent().unwrap_or(&listen_path);
                 if let Err(e) = std::fs::metadata(socket_dir) {
-                    log::error!("Cannot access socket dir {}: {}, exiting", socket_dir.display(), e);
+                    log::error!(
+                        "Cannot access socket dir {}: {}, exiting",
+                        socket_dir.display(),
+                        e
+                    );
                     std::process::exit(1);
                 }
 
@@ -230,10 +237,7 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
                 let mut mgr = manager.lock().await;
                 let removed = mgr.validate_and_cleanup();
                 if !removed.is_empty() {
-                    log::info!(
-                        "Health check removed {} stale socket(s)",
-                        removed.len()
-                    );
+                    log::info!("Health check removed {} stale socket(s)", removed.len());
                 }
                 drop(mgr);
 
@@ -242,7 +246,7 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
             }
         });
 
-        log::info!("Health check task started (interval: {:?})", interval);
+        log::info!("Health check task started (interval: {interval:?})");
     }
 
     // Create control server state
@@ -268,7 +272,7 @@ async fn run_daemon(config_path: std::path::PathBuf, config_opt: <cli::Config as
     // Spawn control server task
     tokio::spawn(async move {
         if let Err(e) = control_server.run().await {
-            log::error!("Control server error: {}", e);
+            log::error!("Control server error: {e}");
         }
     });
 

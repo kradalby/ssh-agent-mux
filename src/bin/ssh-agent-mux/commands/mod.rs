@@ -1,6 +1,6 @@
 //! CLI command handlers for interacting with the running daemon.
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::ExitCode;
 
 use ssh_agent_mux::control::{
@@ -16,13 +16,13 @@ pub enum OutputFormat {
 /// Run a CLI command against the daemon
 pub fn run_command(
     command: &crate::cli::Command,
-    control_socket: &PathBuf,
+    control_socket: &Path,
     format: OutputFormat,
 ) -> ExitCode {
     let mut client = match ControlClient::connect(control_socket) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error: Failed to connect to daemon: {}", e);
+            eprintln!("Error: Failed to connect to daemon: {e}");
             eprintln!("Is ssh-agent-mux running?");
             eprintln!("Control socket: {}", control_socket.display());
             return ExitCode::FAILURE;
@@ -59,7 +59,7 @@ fn cmd_status(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             ExitCode::FAILURE
         }
     }
@@ -75,13 +75,16 @@ fn print_status_human(status: &StatusInfo) {
     println!("  Control:        {}", status.control_socket);
     println!();
     println!("Watch:");
-    println!("  Enabled:        {}", if status.watch_enabled { "yes" } else { "no" });
+    println!(
+        "  Enabled:        {}",
+        if status.watch_enabled { "yes" } else { "no" }
+    );
     println!("  Status:         {}", status.watcher_status);
     println!();
     println!("Stats:");
     println!("  Upstream:       {} socket(s)", status.socket_count);
     if let Some(keys) = status.key_count {
-        println!("  Keys:           {} available", keys);
+        println!("  Keys:           {keys} available");
     }
 }
 
@@ -99,7 +102,7 @@ fn cmd_list(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             ExitCode::FAILURE
         }
     }
@@ -113,8 +116,8 @@ fn print_sockets_human(sockets: &[SocketInfo]) {
 
     // Header
     println!(
-        "{:<6} {:<12} {:<8} {:<20} {}",
-        "ORDER", "SOURCE", "HEALTHY", "ADDED", "PATH"
+        "{:<6} {:<12} {:<8} {:<20} PATH",
+        "ORDER", "SOURCE", "HEALTHY", "ADDED"
     );
 
     for socket in sockets {
@@ -128,11 +131,7 @@ fn print_sockets_human(sockets: &[SocketInfo]) {
 
         println!(
             "{:<6} {:<12} {:<8} {:<20} {}",
-            socket.order,
-            socket.source,
-            healthy,
-            added,
-            socket.path
+            socket.order, socket.source, healthy, added, socket.path
         );
     }
 }
@@ -149,8 +148,8 @@ fn cmd_list_keys(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                         println!("No keys available.");
                     } else {
                         println!(
-                            "{:<50} {:<10} {:<30} {}",
-                            "FINGERPRINT", "TYPE", "COMMENT", "SOURCE"
+                            "{:<50} {:<10} {:<30} SOURCE",
+                            "FINGERPRINT", "TYPE", "COMMENT"
                         );
                         for key in &keys {
                             // Truncate fingerprint for display
@@ -175,7 +174,7 @@ fn cmd_list_keys(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             ExitCode::FAILURE
         }
     }
@@ -195,7 +194,7 @@ fn cmd_reload(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                     );
                 }
                 OutputFormat::Human => {
-                    println!("{}", message);
+                    println!("{message}");
                 }
             }
             ExitCode::SUCCESS
@@ -212,7 +211,7 @@ fn cmd_reload(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                     );
                 }
                 OutputFormat::Human => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             ExitCode::FAILURE
@@ -234,7 +233,7 @@ fn cmd_validate(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                     );
                 }
                 OutputFormat::Human => {
-                    println!("{}", message);
+                    println!("{message}");
                 }
             }
             ExitCode::SUCCESS
@@ -251,7 +250,7 @@ fn cmd_validate(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                     );
                 }
                 OutputFormat::Human => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             ExitCode::FAILURE
@@ -259,7 +258,7 @@ fn cmd_validate(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
     }
 }
 
-fn cmd_add(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) -> ExitCode {
+fn cmd_add(client: &mut ControlClient, path: &Path, format: OutputFormat) -> ExitCode {
     match client.add_socket(&path.display().to_string()) {
         Ok(message) => {
             match format {
@@ -273,7 +272,7 @@ fn cmd_add(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) -> 
                     );
                 }
                 OutputFormat::Human => {
-                    println!("{}", message);
+                    println!("{message}");
                 }
             }
             ExitCode::SUCCESS
@@ -290,7 +289,7 @@ fn cmd_add(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) -> 
                     );
                 }
                 OutputFormat::Human => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             ExitCode::FAILURE
@@ -298,7 +297,7 @@ fn cmd_add(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) -> 
     }
 }
 
-fn cmd_remove(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) -> ExitCode {
+fn cmd_remove(client: &mut ControlClient, path: &Path, format: OutputFormat) -> ExitCode {
     match client.remove_socket(&path.display().to_string()) {
         Ok(message) => {
             match format {
@@ -312,7 +311,7 @@ fn cmd_remove(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) 
                     );
                 }
                 OutputFormat::Human => {
-                    println!("{}", message);
+                    println!("{message}");
                 }
             }
             ExitCode::SUCCESS
@@ -329,7 +328,7 @@ fn cmd_remove(client: &mut ControlClient, path: &PathBuf, format: OutputFormat) 
                     );
                 }
                 OutputFormat::Human => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             ExitCode::FAILURE
@@ -368,7 +367,7 @@ fn cmd_health(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
                     );
                 }
                 OutputFormat::Human => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             ExitCode::FAILURE
@@ -377,10 +376,7 @@ fn cmd_health(client: &mut ControlClient, format: OutputFormat) -> ExitCode {
 }
 
 fn print_health_human(result: &HealthCheckResult) {
-    println!(
-        "Checking {} socket(s)...",
-        result.sockets.len()
-    );
+    println!("Checking {} socket(s)...", result.sockets.len());
 
     for (i, socket) in result.sockets.iter().enumerate() {
         let status_icon = match socket.status {
@@ -388,24 +384,15 @@ fn print_health_human(result: &HealthCheckResult) {
             _ => "✗",
         };
 
-        println!(
-            "  [{}/{}] {}",
-            i + 1,
-            result.sockets.len(),
-            socket.path
-        );
-        println!(
-            "        Status: {} {}",
-            status_icon,
-            socket.status
-        );
+        println!("  [{}/{}] {}", i + 1, result.sockets.len(), socket.path);
+        println!("        Status: {} {}", status_icon, socket.status);
 
         if let Some(count) = socket.key_count {
-            println!("        Keys: {}", count);
+            println!("        Keys: {count}");
         }
 
         if let Some(ref error) = socket.error {
-            println!("        Error: {}", error);
+            println!("        Error: {error}");
         }
     }
 
@@ -423,7 +410,7 @@ fn print_health_human(result: &HealthCheckResult) {
         println!();
         println!("Removed {} stale socket(s):", result.removed.len());
         for path in &result.removed {
-            println!("  - {}", path);
+            println!("  - {path}");
         }
     }
 }
@@ -431,17 +418,17 @@ fn print_health_human(result: &HealthCheckResult) {
 /// Format a duration in seconds as human-readable
 fn format_duration(secs: u64) -> String {
     if secs < 60 {
-        format!("{}s", secs)
+        format!("{secs}s")
     } else if secs < 3600 {
         format!("{}m {}s", secs / 60, secs % 60)
     } else if secs < 86400 {
         let hours = secs / 3600;
         let mins = (secs % 3600) / 60;
-        format!("{}h {}m", hours, mins)
+        format!("{hours}h {mins}m")
     } else {
         let days = secs / 86400;
         let hours = (secs % 86400) / 3600;
-        format!("{}d {}h", days, hours)
+        format!("{days}d {hours}h")
     }
 }
 
