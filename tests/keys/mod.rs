@@ -1,4 +1,5 @@
 //! Example generated SSH keys
+#![allow(dead_code)]
 pub const PRIVATE: [&str; 3] = [TEST_KEY_RSA, TEST_KEY_ECDSA, TEST_KEY_ED25519];
 pub const PUBLIC: [&str; 3] = [TEST_KEY_RSA_PUB, TEST_KEY_ECDSA_PUB, TEST_KEY_ED25519_PUB];
 

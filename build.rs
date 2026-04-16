@@ -16,11 +16,8 @@ fn main() {
         .or_else(|| git_describe().ok())
         .unwrap_or_else(|| "unknown".to_string());
 
-    println!("cargo:rustc-env=SSH_AGENT_MUX_GIT_DESCRIBE={}", git_desc);
-    println!(
-        "cargo:rustc-env=SSH_AGENT_MUX_BUILD_VERSION={}",
-        format!("{} ({})", pkg_version, git_desc)
-    );
+    println!("cargo:rustc-env=SSH_AGENT_MUX_GIT_DESCRIBE={git_desc}");
+    println!("cargo:rustc-env=SSH_AGENT_MUX_BUILD_VERSION={pkg_version} ({git_desc})");
 }
 
 fn git_describe() -> Result<String, std::io::Error> {
@@ -30,9 +27,6 @@ fn git_describe() -> Result<String, std::io::Error> {
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "git describe failed",
-        ))
+        Err(std::io::Error::other("git describe failed"))
     }
 }

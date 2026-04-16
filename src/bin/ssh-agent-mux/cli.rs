@@ -1,4 +1,9 @@
-use std::{env, fs::File, io::Read, path::PathBuf};
+use std::{
+    env,
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use clap_serde_derive::{
     clap::{self, Parser, Subcommand, ValueEnum},
@@ -28,13 +33,17 @@ fn default_listen_path() -> PathBuf {
 }
 
 /// Derive control socket path from listen path
-pub fn derive_control_path(listen_path: &PathBuf) -> PathBuf {
+pub fn derive_control_path(listen_path: &Path) -> PathBuf {
     ssh_agent_mux::control::default_control_path(listen_path)
 }
 
 /// Get the default control socket path for client commands
 pub fn default_control_socket() -> PathBuf {
-    derive_control_path(&default_listen_path().expand_tilde_owned().unwrap_or_default())
+    derive_control_path(
+        &default_listen_path()
+            .expand_tilde_owned()
+            .unwrap_or_default(),
+    )
 }
 
 #[derive(Parser)]
@@ -98,7 +107,6 @@ pub enum Command {
     Health,
 }
 
-
 #[derive(ClapSerde, Clone, Serialize)]
 pub struct Config {
     /// Listen path
@@ -139,11 +147,13 @@ pub struct Config {
     #[arg(skip)]
     #[serde(skip_deserializing, skip_serializing)]
     pub config_path: PathBuf,
-
 }
 
 impl Config {
-    pub fn from_serve_args(config_path: PathBuf, mut config_opt: <Config as ClapSerde>::Opt) -> EyreResult<Self> {
+    pub fn from_serve_args(
+        config_path: PathBuf,
+        mut config_opt: <Config as ClapSerde>::Opt,
+    ) -> EyreResult<Self> {
         let mut config = if let Ok(mut f) = File::open(&config_path) {
             log::info!("Read configuration from {}", config_path.display());
             let mut config_text = String::new();

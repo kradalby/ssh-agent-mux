@@ -71,12 +71,7 @@ pub struct SmartWatcher {
 impl SmartWatcher {
     /// Get list of currently watched directories
     pub fn watched_directories(&self) -> Vec<PathBuf> {
-        self.watched_dirs
-            .lock()
-            .unwrap()
-            .iter()
-            .cloned()
-            .collect()
+        self.watched_dirs.lock().unwrap().iter().cloned().collect()
     }
 
     /// Try to add a directory to the watch list
@@ -166,7 +161,7 @@ pub async fn watch_tmp_directory(
             }
             Err(errors) => {
                 for error in errors {
-                    log::error!("File watcher error: {:?}", error);
+                    log::error!("File watcher error: {error:?}");
                 }
             }
         },
@@ -207,7 +202,7 @@ pub async fn watch_tmp_directory_smart(
             }
             Err(errors) => {
                 for error in errors {
-                    log::error!("File watcher error: {:?}", error);
+                    log::error!("File watcher error: {error:?}");
                 }
             }
         },
@@ -234,10 +229,7 @@ pub async fn watch_tmp_directory_smart(
     }
 
     let watched_count = watcher.watched_dirs.lock().unwrap().len();
-    log::info!(
-        "Smart file watcher started, monitoring {} ssh/auth-agent directories",
-        watched_count
-    );
+    log::info!("Smart file watcher started, monitoring {watched_count} ssh/auth-agent directories");
 
     Ok(watcher)
 }
@@ -420,19 +412,14 @@ pub struct WatchResult {
 ///
 /// Tries to start the smart file watcher first. If that fails,
 /// returns Polling mode instead with the error reason.
-pub async fn start_watching(
-    tx: mpsc::UnboundedSender<WatchEvent>,
-) -> WatchResult {
+pub async fn start_watching(tx: mpsc::UnboundedSender<WatchEvent>) -> WatchResult {
     match watch_tmp_directory_smart(tx).await {
         Ok(watcher) => WatchResult {
             mode: WatchMode::Smart(watcher),
             fallback_reason: None,
         },
         Err(e) => {
-            log::warn!(
-                "Smart file watcher failed ({}), will use polling fallback",
-                e
-            );
+            log::warn!("Smart file watcher failed ({e}), will use polling fallback");
             WatchResult {
                 mode: WatchMode::Polling,
                 fallback_reason: Some(e.to_string()),
@@ -482,7 +469,7 @@ pub async fn run_polling_loop(
                         for agent in current_set.difference(&known_agents) {
                             log::debug!("Polling detected new agent: {}", agent.display());
                             if let Err(e) = tx.send(WatchEvent::Added(agent.clone())) {
-                                log::error!("Failed to send Added event: {}", e);
+                                log::error!("Failed to send Added event: {e}");
                             }
                         }
 
@@ -490,14 +477,14 @@ pub async fn run_polling_loop(
                         for agent in known_agents.difference(&current_set) {
                             log::debug!("Polling detected removed agent: {}", agent.display());
                             if let Err(e) = tx.send(WatchEvent::Removed(agent.clone())) {
-                                log::error!("Failed to send Removed event: {}", e);
+                                log::error!("Failed to send Removed event: {e}");
                             }
                         }
 
                         known_agents = current_set;
                     }
                     Err(e) => {
-                        log::warn!("Polling scan failed: {}", e);
+                        log::warn!("Polling scan failed: {e}");
                     }
                 }
             }
@@ -620,7 +607,7 @@ mod tests {
             }
             Err(e) => {
                 // Might fail if /tmp doesn't exist or no permissions
-                log::debug!("Scan failed (expected in some environments): {}", e);
+                log::debug!("Scan failed (expected in some environments): {e}");
             }
         }
     }
@@ -636,7 +623,9 @@ mod tests {
         assert!(should_watch_directory(Path::new("/tmp/auth-agent999")));
 
         // Should NOT match other directories
-        assert!(!should_watch_directory(Path::new("/tmp/systemd-private-abc")));
+        assert!(!should_watch_directory(Path::new(
+            "/tmp/systemd-private-abc"
+        )));
         assert!(!should_watch_directory(Path::new("/tmp/snap-private-tmp")));
         assert!(!should_watch_directory(Path::new("/tmp/random-dir")));
         assert!(!should_watch_directory(Path::new("/tmp/.X11-unix")));

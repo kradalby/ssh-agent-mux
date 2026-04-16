@@ -24,7 +24,7 @@ fn create_forwarded_agent_structure(
     // Pattern must match /tmp/ssh-* where * is typically 6 random chars
     let ssh_dir = base_dir.join(format!(
         "ssh-{:06x}{}",
-        (std::process::id() as u32).wrapping_add(suffix.len() as u32) % 0xFFFFFF,
+        std::process::id().wrapping_add(suffix.len() as u32) % 0xFFFFFF,
         suffix.chars().take(2).collect::<String>()
     ));
 
@@ -94,7 +94,7 @@ fn detect_forwarded_socket_added() -> TestResult {
 
     // Now should have the key from the forwarded agent
     let keys_after = mux.list()?;
-    println!("Keys after: {:?}", keys_after);
+    println!("Keys after: {keys_after:?}");
 
     // Cleanup first
     let ssh_dir = forwarded_path.parent().unwrap();
@@ -140,7 +140,7 @@ fn detect_forwarded_socket_removed() -> TestResult {
 
     // Should have detected the existing forwarded socket
     let initial_keys = mux.list()?;
-    println!("Initial keys: {:?}", initial_keys);
+    println!("Initial keys: {initial_keys:?}");
 
     // Remove the forwarded socket directory
     fs::remove_file(&forwarded_path)?;
@@ -151,7 +151,7 @@ fn detect_forwarded_socket_removed() -> TestResult {
 
     // Keys should be gone (validation will remove non-existent sockets)
     let keys_after = mux.list()?;
-    println!("Keys after removal: {:?}", keys_after);
+    println!("Keys after removal: {keys_after:?}");
 
     assert!(
         initial_keys.len() > keys_after.len() || keys_after.is_empty(),
@@ -203,7 +203,7 @@ fn forwarded_socket_priority() -> TestResult {
 
     // Should now have both keys, with ED25519 first (from forwarded agent)
     let keys_after = mux.list()?;
-    println!("Keys with priority test: {:?}", keys_after);
+    println!("Keys with priority test: {keys_after:?}");
 
     // Clean up
     let ssh_dir = forwarded_path.parent().unwrap();
@@ -251,7 +251,7 @@ fn multiple_forwarded_sockets_ordering() -> TestResult {
 
     // Should have RSA key
     let keys_after_first = mux.list()?;
-    println!("Keys after first: {:?}", keys_after_first);
+    println!("Keys after first: {keys_after_first:?}");
     assert_eq!(keys_after_first.len(), 1);
     assert!(keys_after_first[0].contains("integration-test-rsa"));
 
@@ -264,7 +264,7 @@ fn multiple_forwarded_sockets_ordering() -> TestResult {
 
     // Should have both keys, with ECDSA first (newer socket)
     let keys = mux.list()?;
-    println!("Keys with both agents: {:?}", keys);
+    println!("Keys with both agents: {keys:?}");
 
     // Cleanup
     let _ = fs::remove_file(&first_path);
@@ -311,7 +311,7 @@ fn cleanup_invalid_forwarded_sockets() -> TestResult {
 
     // Should detect the socket
     let keys_before = mux.list()?;
-    println!("Keys before cleanup: {:?}", keys_before);
+    println!("Keys before cleanup: {keys_before:?}");
 
     // Delete the forwarded symlink (simulating a disconnected agent)
     fs::remove_file(&forwarded_path)?;
@@ -321,7 +321,7 @@ fn cleanup_invalid_forwarded_sockets() -> TestResult {
 
     // Request keys again, which triggers validation
     let keys_after = mux.list()?;
-    println!("Keys after cleanup: {:?}", keys_after);
+    println!("Keys after cleanup: {keys_after:?}");
 
     // Cleanup
     if let Some(parent) = forwarded_path.parent() {
@@ -368,11 +368,8 @@ fn watcher_preserves_configured_sockets() -> TestResult {
     for i in 0..3 {
         let forwarded_agent = SshAgentInstance::new_openssh()?;
         forwarded_agent.add(keys::TEST_KEY_ED25519)?;
-        let forwarded = create_forwarded_agent_structure(
-            &tmp_dir,
-            &forwarded_agent,
-            &format!("-preserve{}", i),
-        )?;
+        let forwarded =
+            create_forwarded_agent_structure(&tmp_dir, &forwarded_agent, &format!("-preserve{i}"))?;
         thread::sleep(Duration::from_millis(500));
         fs::remove_file(&forwarded)?;
         if let Some(parent) = forwarded.parent() {
@@ -384,7 +381,7 @@ fn watcher_preserves_configured_sockets() -> TestResult {
 
     // Configured key should still be present
     let final_keys = mux.list()?;
-    println!("Final keys: {:?}", final_keys);
+    println!("Final keys: {final_keys:?}");
     assert!(
         !final_keys.is_empty(),
         "Should still have configured socket"
@@ -452,8 +449,7 @@ fn debouncing_rapid_events() -> TestResult {
     for i in 0..3 {
         let agent = SshAgentInstance::new_openssh()?;
         agent.add(keys::TEST_KEY_ED25519)?;
-        let socket =
-            create_forwarded_agent_structure(&tmp_dir, &agent, &format!("-debounce{}", i))?;
+        let socket = create_forwarded_agent_structure(&tmp_dir, &agent, &format!("-debounce{i}"))?;
         thread::sleep(Duration::from_millis(100));
         let _ = fs::remove_file(&socket);
         if let Some(parent) = socket.parent() {
@@ -468,7 +464,7 @@ fn debouncing_rapid_events() -> TestResult {
 
     // Should end with no keys (all sockets were removed)
     let keys = mux.list()?;
-    println!("Keys after rapid events: {:?}", keys);
+    println!("Keys after rapid events: {keys:?}");
     assert!(
         keys.is_empty(),
         "Should handle rapid add/remove events correctly"

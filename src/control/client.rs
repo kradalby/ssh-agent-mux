@@ -30,16 +30,16 @@ impl std::fmt::Display for ControlClientError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ControlClientError::ConnectionFailed(e) => {
-                write!(f, "Failed to connect to control socket: {}", e)
+                write!(f, "Failed to connect to control socket: {e}")
             }
-            ControlClientError::SendFailed(e) => write!(f, "Failed to send request: {}", e),
-            ControlClientError::ReceiveFailed(e) => write!(f, "Failed to receive response: {}", e),
-            ControlClientError::SerializeFailed(e) => write!(f, "Failed to serialize request: {}", e),
+            ControlClientError::SendFailed(e) => write!(f, "Failed to send request: {e}"),
+            ControlClientError::ReceiveFailed(e) => write!(f, "Failed to receive response: {e}"),
+            ControlClientError::SerializeFailed(e) => write!(f, "Failed to serialize request: {e}"),
             ControlClientError::DeserializeFailed(e) => {
-                write!(f, "Failed to deserialize response: {}", e)
+                write!(f, "Failed to deserialize response: {e}")
             }
             ControlClientError::Timeout => write!(f, "Connection timed out"),
-            ControlClientError::DaemonError(e) => write!(f, "Daemon error: {}", e),
+            ControlClientError::DaemonError(e) => write!(f, "Daemon error: {e}"),
         }
     }
 }
@@ -65,8 +65,7 @@ impl ControlClient {
     ) -> Result<Self, ControlClientError> {
         let path = path.as_ref();
 
-        let stream =
-            UnixStream::connect(path).map_err(ControlClientError::ConnectionFailed)?;
+        let stream = UnixStream::connect(path).map_err(ControlClientError::ConnectionFailed)?;
 
         stream
             .set_read_timeout(Some(timeout))
@@ -96,7 +95,9 @@ impl ControlClient {
         self.stream
             .write_all(b"\n")
             .map_err(ControlClientError::SendFailed)?;
-        self.stream.flush().map_err(ControlClientError::SendFailed)?;
+        self.stream
+            .flush()
+            .map_err(ControlClientError::SendFailed)?;
 
         // Read response
         let mut response_line = String::new();
@@ -228,12 +229,11 @@ pub fn default_control_path(listen_path: &Path) -> std::path::PathBuf {
     let listen_str = listen_path.to_string_lossy();
 
     // Replace .sock with .ctl
-    if listen_str.ends_with(".sock") {
-        let base = &listen_str[..listen_str.len() - 5];
-        std::path::PathBuf::from(format!("{}.ctl", base))
+    if let Some(base) = listen_str.strip_suffix(".sock") {
+        std::path::PathBuf::from(format!("{base}.ctl"))
     } else {
         // Just append .ctl
-        std::path::PathBuf::from(format!("{}.ctl", listen_str))
+        std::path::PathBuf::from(format!("{listen_str}.ctl"))
     }
 }
 
@@ -263,9 +263,9 @@ mod tests {
     #[test]
     fn test_error_display() {
         let err = ControlClientError::DaemonError("test error".to_string());
-        assert_eq!(format!("{}", err), "Daemon error: test error");
+        assert_eq!(format!("{err}"), "Daemon error: test error");
 
         let err = ControlClientError::Timeout;
-        assert_eq!(format!("{}", err), "Connection timed out");
+        assert_eq!(format!("{err}"), "Connection timed out");
     }
 }

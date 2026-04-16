@@ -56,10 +56,7 @@ impl ControlServer {
         }
 
         let listener = UnixListener::bind(control_path)?;
-        log::info!(
-            "Control server listening on {}",
-            control_path.display()
-        );
+        log::info!("Control server listening on {}", control_path.display());
 
         Ok(Self { listener, state })
     }
@@ -72,12 +69,12 @@ impl ControlServer {
                     let state = self.state.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_connection(stream, state).await {
-                            log::warn!("Error handling control connection: {}", e);
+                            log::warn!("Error handling control connection: {e}");
                         }
                     });
                 }
                 Err(e) => {
-                    log::error!("Error accepting control connection: {}", e);
+                    log::error!("Error accepting control connection: {e}");
                 }
             }
         }
@@ -105,7 +102,7 @@ async fn handle_connection(
             Ok(req) => req,
             Err(e) => {
                 let response = ControlResponse::Error {
-                    error: format!("Invalid request: {}", e),
+                    error: format!("Invalid request: {e}"),
                 };
                 let response_json = serde_json::to_string(&response)?;
                 writer.write_all(response_json.as_bytes()).await?;
@@ -115,9 +112,9 @@ async fn handle_connection(
             }
         };
 
-        log::debug!("Control request: {:?}", request);
+        log::debug!("Control request: {request:?}");
         let response = handle_request(request, &state).await;
-        log::debug!("Control response: {:?}", response);
+        log::debug!("Control response: {response:?}");
 
         let response_json = serde_json::to_string(&response)?;
         writer.write_all(response_json.as_bytes()).await?;
@@ -131,10 +128,7 @@ async fn handle_connection(
 }
 
 /// Handle a single control request
-async fn handle_request(
-    request: ControlRequest,
-    state: &ControlServerState,
-) -> ControlResponse {
+async fn handle_request(request: ControlRequest, state: &ControlServerState) -> ControlResponse {
     match request {
         ControlRequest::Ping => ControlResponse::Pong,
 
@@ -199,7 +193,7 @@ async fn handle_request(
                     }
                 }
                 Err(e) => ControlResponse::Error {
-                    error: format!("Failed to scan for agents: {}", e),
+                    error: format!("Failed to scan for agents: {e}"),
                 },
             }
         }
@@ -326,7 +320,11 @@ async fn handle_request(
 async fn check_socket_health(path: &Path) -> (SocketHealthStatus, Option<usize>, Option<String>) {
     // Check if file exists
     if !path.exists() {
-        return (SocketHealthStatus::Missing, None, Some("Socket file does not exist".to_string()));
+        return (
+            SocketHealthStatus::Missing,
+            None,
+            Some("Socket file does not exist".to_string()),
+        );
     }
 
     // Try to connect
@@ -336,7 +334,7 @@ async fn check_socket_health(path: &Path) -> (SocketHealthStatus, Option<usize>,
             return (
                 SocketHealthStatus::ConnectionFailed,
                 None,
-                Some(format!("Connection failed: {}", e)),
+                Some(format!("Connection failed: {e}")),
             );
         }
     };
@@ -352,13 +350,11 @@ async fn check_socket_health(path: &Path) -> (SocketHealthStatus, Option<usize>,
             // connection is sufficient for health checking.
             (SocketHealthStatus::Healthy, None, None)
         }
-        Err(e) => {
-            (
-                SocketHealthStatus::ProtocolError,
-                None,
-                Some(format!("Protocol error: {}", e)),
-            )
-        }
+        Err(e) => (
+            SocketHealthStatus::ProtocolError,
+            None,
+            Some(format!("Protocol error: {e}")),
+        ),
     }
 }
 
@@ -407,9 +403,7 @@ mod tests {
         let server = ControlServer::bind(&control_path, state).await.unwrap();
 
         // Spawn server in background
-        let server_handle = tokio::spawn(async move {
-            server.accept_one().await
-        });
+        let server_handle = tokio::spawn(async move { server.accept_one().await });
 
         // Give server time to start
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;

@@ -9,7 +9,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 fn make_openssh_agent_with_keys() -> io::Result<SshAgentInstance> {
     let agent = SshAgentInstance::new_openssh()?;
-    println!("{:#?}", agent);
+    println!("{agent:#?}");
 
     for key in keys::PRIVATE {
         agent.add(key)?;
