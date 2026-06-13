@@ -6,7 +6,7 @@ use color_eyre::eyre::Result as EyreResult;
 use ssh_agent_mux::control::{
     ControlServer, ControlServerState, SelfDeletingControlSocket, WatcherStatus,
 };
-use ssh_agent_mux::{socket_manager::SocketManager, watcher, MuxAgent};
+use ssh_agent_mux::{MuxAgent, socket_manager::SocketManager, watcher};
 use tokio::select;
 use tokio::signal::{self, unix::SignalKind};
 use tokio::sync::Mutex;

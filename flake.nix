@@ -10,6 +10,10 @@
     # For installing non-standard rustc versions
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+
+    # For formatting checks (rust + nix) via `nix fmt` and a flake check
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = {
@@ -17,6 +21,7 @@
     nixpkgs,
     flake-utils,
     rust-overlay,
+    treefmt-nix,
   }:
     {
       overlays.default = final: prev: {
@@ -101,6 +106,11 @@
       # Build toolchain: minimal specified version for CI and package builds
       rustMinimalToolchain = pkgs.rust-bin.stable.${rustVersion}.minimal;
 
+      # Lint toolchain: minimal plus clippy for the clippy check
+      rustClippyToolchain = pkgs.rust-bin.stable.${rustVersion}.minimal.override {
+        extensions = ["clippy"];
+      };
+
       rustMinimalPlatform = pkgs.makeRustPlatform {
         rustc = rustMinimalToolchain;
         cargo = rustMinimalToolchain;
@@ -126,8 +136,25 @@
         RUST_BACKTRACE = 1;
         CARGO_INCREMENTAL = "0"; # https://github.com/rust-lang/rust/issues/139110
       };
+
+      # treefmt wrapper so `nix fmt` covers both rust and nix
+      treefmtEval = treefmt-nix.lib.evalModule pkgs {
+        projectRootFile = "flake.nix";
+        programs.rustfmt.enable = true;
+        programs.alejandra.enable = true;
+      };
+
+      # Source restricted to the files treefmt should check
+      fmtSrc = pkgs.lib.fileset.toSource {
+        root = ./.;
+        fileset = pkgs.lib.fileset.unions [
+          (pkgs.lib.fileset.fileFilter (f: f.hasExt "rs") ./.)
+          (pkgs.lib.fileset.fileFilter (f: f.hasExt "nix") ./.)
+          ./Cargo.toml
+        ];
+      };
     in {
-      formatter = pkgs.alejandra;
+      formatter = treefmtEval.config.build.wrapper;
 
       packages = {
         ssh-agent-mux = rustMinimalPlatform.buildRustPackage {
@@ -172,15 +199,33 @@
         default = self.packages.${system}.ssh-agent-mux;
       };
 
-      checks.ssh-agent-mux = self.packages.${system}.ssh-agent-mux.overrideAttrs ({...}: {
-        # Run checks under the test profile for faster builds
-        cargoBuildType = "test";
-        cargoCheckType = "test";
+      checks = {
+        # The package compiles.
+        build = self.packages.${system}.ssh-agent-mux;
 
-        # We don't care about the binary in checks, just that tests pass
-        buildPhase = "true";
-        installPhase = "touch $out";
-      });
+        # Run the test suite under the test profile for faster builds.
+        cargotest = self.packages.${system}.ssh-agent-mux.overrideAttrs ({...}: {
+          cargoBuildType = "test";
+          cargoCheckType = "test";
+
+          # We don't care about the binary in checks, just that tests pass.
+          buildPhase = "true";
+          installPhase = "touch $out";
+        });
+
+        # Lint with clippy, treating warnings as errors.
+        clippy = self.packages.${system}.ssh-agent-mux.overrideAttrs (old: {
+          nativeBuildInputs = old.nativeBuildInputs ++ [rustClippyToolchain];
+          buildPhase = ''
+            cargo clippy --all-targets -- -D warnings
+          '';
+          doCheck = false;
+          installPhase = "touch $out";
+        });
+
+        # Rust + nix formatting.
+        formatting = treefmtEval.config.build.check fmtSrc;
+      };
 
       devShells.default = let
         packages = with pkgs;

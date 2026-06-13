@@ -9,8 +9,8 @@ use ssh_agent_lib::{
     agent::{self, Agent, ListeningSocket, Session},
     client,
     error::AgentError,
-    proto::{extension::QueryResponse, Extension, Identity, SignRequest},
-    ssh_key::{public::KeyData as PubKeyData, Signature},
+    proto::{Extension, Identity, SignRequest, extension::QueryResponse},
+    ssh_key::{Signature, public::KeyData as PubKeyData},
 };
 use tokio::{
     net::UnixListener,
@@ -81,14 +81,21 @@ impl Session for MuxAgent {
                             Ok(v) => {
                                 session_bind_suceeded = true;
                                 if v.is_some() {
-                                    log::warn!("session-bind@openssh.com request succeeded on socket <{}>, but an invalid response was received", sock_path.display());
+                                    log::warn!(
+                                        "session-bind@openssh.com request succeeded on socket <{}>, but an invalid response was received",
+                                        sock_path.display()
+                                    );
                                 }
                             }
                             // Don't propagate upstream lack of extension support
                             Err(AgentError::Failure) => continue,
                             // Report but ignore any unexpected errors
                             Err(e) => {
-                                log::error!("Unexpected error on socket <{}> when requesting session-bind@openssh.com extension: {}", sock_path.display(), e);
+                                log::error!(
+                                    "Unexpected error on socket <{}> when requesting session-bind@openssh.com extension: {}",
+                                    sock_path.display(),
+                                    e
+                                );
                                 continue;
                             }
                         }

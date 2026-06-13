@@ -1,72 +1,23 @@
 name: CI
+
 on:
-  workflow_dispatch:
-  pull_request:
   push:
     branches:
       - main
-  schedule:
-    - cron: "00 01 * * *"
+  pull_request:
+    branches:
+      - main
 
-# The section is needed to drop write-all permissions that are granted on
-# `schedule` event. By specifying any permission explicitly all others are set
-# to none. By using the principle of least privilege the damage a compromised
-# workflow can do (because of an injection or compromised third party tool or
-# action) is restricted. Currently the worklow doesn't need any additional
-# permission except for pulling the code. Adding labels to issues, commenting
-# on pull-requests, etc. may need additional permissions:
-#
-# Syntax for this section:
-# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
-#
-# Reference for how to assign permissions on a job-by-job basis:
-# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
-#
-# Reference for available permissions that we can enable if needed:
-# https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
+# Gate jobs only call `nix build .#checks.<sys>.<name>`, so no `nix develop`
+# default shell is needed. The check logic lives in flake.nix.
 permissions:
-  # to fetch code (actions/checkout)
   contents: read
 
-defaults:
-  run:
-    shell: nix develop --command bash -e {0}
-
 jobs:
-  nix-build:
-    name: Nix Build & Test
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Install Nix
-        uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
-
-      - name: Setup Nix cache (hestia)
-        uses: Mic92/hestia/action@ff07bb902a9968ac0c3d0e51d90a606662a375d8 # main
-
-      - name: Build package
-        run: nix build -L
-
-      - name: Run tests
-        run: cargo nextest run
-
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Check flake
-        run: nix flake check
-
-  nix-modules:
-    name: Validate Nix Modules
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Nix
@@ -75,17 +26,13 @@ jobs:
       - name: Setup Nix cache (hestia)
         uses: Mic92/hestia/action@ff07bb902a9968ac0c3d0e51d90a606662a375d8 # main
 
-      - name: Validate Home Manager module
-        run: nix eval .#homeManagerModules.default --apply 'builtins.isFunction'
+      - name: build
+        run: nix build -L .#checks.x86_64-linux.build
 
-      - name: Validate Darwin module
-        run: nix eval .#darwinModules.default --apply 'builtins.isFunction'
-
-  format:
-    name: Format Check
+  cargotest:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Nix
@@ -94,8 +41,35 @@ jobs:
       - name: Setup Nix cache (hestia)
         uses: Mic92/hestia/action@ff07bb902a9968ac0c3d0e51d90a606662a375d8 # main
 
-      - name: Check Nix formatting
-        run: nix fmt -- --check .
+      - name: cargotest
+        run: nix build -L .#checks.x86_64-linux.cargotest
 
-      - name: Check Rust formatting
-        run: cargo fmt --all --check
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Install Nix
+        uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
+
+      - name: Setup Nix cache (hestia)
+        uses: Mic92/hestia/action@ff07bb902a9968ac0c3d0e51d90a606662a375d8 # main
+
+      - name: clippy
+        run: nix build -L .#checks.x86_64-linux.clippy
+
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Install Nix
+        uses: NixOS/nix-installer-action@6b8548fe06acfb0155a50ab5d561accb215764cc # main
+
+      - name: Setup Nix cache (hestia)
+        uses: Mic92/hestia/action@ff07bb902a9968ac0c3d0e51d90a606662a375d8 # main
+
+      - name: formatting
+        run: nix build -L .#checks.x86_64-linux.formatting

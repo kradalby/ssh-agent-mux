@@ -11,6 +11,6 @@ pub mod client;
 pub mod protocol;
 pub mod server;
 
-pub use client::{default_control_path, ControlClient, ControlClientError};
+pub use client::{ControlClient, ControlClientError, default_control_path};
 pub use protocol::*;
 pub use server::{ControlServer, ControlServerState, SelfDeletingControlSocket};
