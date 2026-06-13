@@ -28,6 +28,10 @@ permissions:
   # to fetch code (actions/checkout)
   contents: read
 
+defaults:
+  run:
+    shell: nix develop --command bash -e {0}
+
 jobs:
   nix-build:
     name: Nix Build & Test
@@ -38,25 +42,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Nix
-        uses: nixbuild/nix-quick-install-action@v28
+        uses: NixOS/nix-installer-action@main
 
-      - name: Restore and cache Nix store
-        uses: nix-community/cache-nix-action@v5
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
+      - name: Setup Nix cache (hestia)
+        uses: Mic92/hestia/action@main
 
       - name: Build package
         run: nix build -L
 
       - name: Run tests
-        run: nix develop -c cargo nextest run
+        run: cargo nextest run
 
       - name: Run clippy
-        run: nix develop -c cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Check flake
         run: nix flake check
@@ -66,43 +67,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Nix
-        uses: nixbuild/nix-quick-install-action@v28
+        uses: NixOS/nix-installer-action@main
 
-      - name: Restore and cache Nix store
-        uses: nix-community/cache-nix-action@v5
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
+      - name: Setup Nix cache (hestia)
+        uses: Mic92/hestia/action@main
 
       - name: Validate Home Manager module
-        run: |
-          nix eval .#homeManagerModules.default --apply 'builtins.isFunction'
+        run: nix eval .#homeManagerModules.default --apply 'builtins.isFunction'
 
       - name: Validate Darwin module
-        run: |
-          nix eval .#darwinModules.default --apply 'builtins.isFunction'
+        run: nix eval .#darwinModules.default --apply 'builtins.isFunction'
 
   format:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Nix
-        uses: nixbuild/nix-quick-install-action@v28
+        uses: NixOS/nix-installer-action@main
 
-      - name: Restore and cache Nix store
-        uses: nix-community/cache-nix-action@v5
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
+      - name: Setup Nix cache (hestia)
+        uses: Mic92/hestia/action@main
 
       - name: Check Nix formatting
         run: nix fmt -- --check .
 
       - name: Check Rust formatting
-        run: nix develop -c cargo fmt --all --check
+        run: cargo fmt --all --check
