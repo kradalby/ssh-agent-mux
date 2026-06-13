@@ -10,8 +10,10 @@
 with lib; let
   cfg = config.services.ssh-agent-mux;
   defaultPackage =
-    if sshAgentMuxPackage != null then sshAgentMuxPackage
-    else if pkgs ? ssh-agent-mux then pkgs.ssh-agent-mux
+    if sshAgentMuxPackage != null
+    then sshAgentMuxPackage
+    else if pkgs ? ssh-agent-mux
+    then pkgs.ssh-agent-mux
     else
       throw ''
         ssh-agent-mux package not found.
@@ -28,13 +30,13 @@ with lib; let
     else path;
 
   # Derive control socket path from listen path
-  deriveControlPath = listenPath:
-    let
-      expanded = expandPath listenPath;
-      base = if hasSuffix ".sock" expanded
-        then removeSuffix ".sock" expanded
-        else expanded;
-    in "${base}.ctl";
+  deriveControlPath = listenPath: let
+    expanded = expandPath listenPath;
+    base =
+      if hasSuffix ".sock" expanded
+      then removeSuffix ".sock" expanded
+      else expanded;
+  in "${base}.ctl";
 
   # Build command line arguments
   args =
@@ -153,7 +155,8 @@ in {
     controlPath = mkOption {
       type = types.str;
       readOnly = true;
-      default = if cfg.controlSocketPath != null
+      default =
+        if cfg.controlSocketPath != null
         then expandPath cfg.controlSocketPath
         else deriveControlPath cfg.listenPath;
       description = lib.mdDoc ''
